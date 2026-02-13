@@ -238,6 +238,7 @@ def main() -> None:
         args.url = session.url
         args.scenario = session.scenario
         args.model = args.model or session.model
+        args.fallback_model = args.fallback_model or "anthropic_vertex/claude-sonnet-4-5@20250929"
         args.max_steps = args.max_steps or session.max_steps
         args.pause = args.pause or session.pause
         args.resume_state = build_resume_state(session)
@@ -273,6 +274,8 @@ def main() -> None:
     console_output.console.print(f"[bold]Scenario:[/bold] {args.scenario}")
     console_output.console.print(f"[bold]URL:[/bold] {args.url}")
     console_output.console.print(f"[bold]Model:[/bold] {args.model}")
+    if hasattr(args, 'fallback_model') and args.fallback_model:
+        console_output.console.print(f"[bold]Fallback:[/bold] {args.fallback_model}")
     console_output.console.print(f"[bold]Session:[/bold] {args.run_dir}")
 
     try:
