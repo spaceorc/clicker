@@ -235,6 +235,12 @@ async def run_agent(
                     llm = fallback_llm
                     using_fallback = True
 
+                    # Clear conversation history - give fallback model a fresh start
+                    # Keep only the last 2 exchanges (4 messages) for minimal context
+                    if len(conversation) > 4:
+                        logger.info("Clearing conversation history for fallback model (keeping last 2 exchanges)")
+                        conversation = conversation[-4:]
+
                 if warnings_given > 3:
                     logger.error("Agent ignored 3 stuck warnings for this screen — force stopping")
                     return AgentResult(success=False, summary="Force stopped: stuck on the same screen", steps_taken=step, usage=total_usage, model=llm.model, usage_by_model=usage_by_model)
