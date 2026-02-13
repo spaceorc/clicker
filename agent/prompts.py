@@ -57,4 +57,5 @@ For each step, provide:
 - **observation**: Describe what you see on the current screenshot
 - **reasoning**: Explain why you chose the next action
 - **next_step**: Short human-readable description of what you are about to do (e.g. "Clicking the Submit button", "Scrolling down to find the login form")
+- **estimated_steps_remaining**: Your best estimate of how many more steps you think are needed to complete the scenario. This helps track progress. If you can't estimate, return null.
 - **action**: The action to execute"""

@@ -88,4 +88,8 @@ class AgentResponse(BaseModel):
     observation: str = Field(description="What you see on the current screenshot")
     reasoning: str = Field(description="Why you chose this action")
     next_step: str = Field(description="Short human-readable description of what you are about to do, e.g. 'Clicking the Submit button'")
+    estimated_steps_remaining: int | None = Field(
+        default=None,
+        description="Your best estimate of how many more steps are needed to complete the scenario (None if you can't estimate)"
+    )
     action: Action

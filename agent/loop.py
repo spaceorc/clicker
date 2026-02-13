@@ -239,8 +239,10 @@ async def run_agent(
             logger.info("  reasoning: %s", response.reasoning[:100])
             logger.info("  next_step: %s", response.next_step)
             logger.info("  action: %s", response.action)
+            if response.estimated_steps_remaining is not None:
+                logger.info("  estimated_steps_remaining: %d", response.estimated_steps_remaining)
 
-            console_output.step_action(response.next_step, str(response.action), response.reasoning)
+            console_output.step_action(response.next_step, str(response.action), response.reasoning, response.estimated_steps_remaining)
 
             # Store assistant response as plain text to save tokens
             conversation.append(ConversationMessage(
