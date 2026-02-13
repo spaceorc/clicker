@@ -235,7 +235,13 @@ async def run_agent(
                     llm = fallback_llm
                     using_fallback = True
 
-                    # Don't clear history - fallback needs to know what was already tried
+                    # Compact conversation history for fallback - keep last ~100-200 messages
+                    # This preserves recent context (what was tried) while reducing token cost
+                    max_messages = 150
+                    if len(conversation) > max_messages:
+                        logger.info("Compacting conversation history for fallback model (keeping last %d messages)", max_messages)
+                        conversation = conversation[-max_messages:]
+
                     # Add a hint to try the same approach more carefully
                     stuck_hint += (
                         f"\n\nNOTE: Fallback model activated. Previous attempts are shown above. "
