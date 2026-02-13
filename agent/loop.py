@@ -43,6 +43,7 @@ class AgentResult:
     usage: UsageStats
     model: str = ""
     usage_by_model: dict[str, UsageStats] = field(default_factory=dict)
+    final_url: str = ""
 
 
 _POST_ACTION_DELAY_MS = 2000
@@ -200,12 +201,14 @@ async def run_agent(
             step += 1
 
             if max_steps > 0 and step > max_steps:
-                return AgentResult(success=False, summary=f"Max steps ({max_steps}) exceeded", steps_taken=step - 1, usage=total_usage, model=llm.model, usage_by_model=usage_by_model)
+                final_url = await browser.current_url()
+                return AgentResult(success=False, summary=f"Max steps ({max_steps}) exceeded", steps_taken=step - 1, usage=total_usage, model=llm.model, usage_by_model=usage_by_model, final_url=final_url)
 
             elapsed = time.monotonic() - start_time
             if elapsed > _TIMEOUT_SECONDS:
                 logger.warning("Timeout after %.0f seconds", elapsed)
-                return AgentResult(success=False, summary=f"Timeout after {int(elapsed)}s", steps_taken=step - 1, usage=total_usage, model=llm.model, usage_by_model=usage_by_model)
+                final_url = await browser.current_url()
+                return AgentResult(success=False, summary=f"Timeout after {int(elapsed)}s", steps_taken=step - 1, usage=total_usage, model=llm.model, usage_by_model=usage_by_model, final_url=final_url)
 
             # Take screenshot
             screenshot_b64 = await browser.screenshot_base64()
@@ -294,7 +297,7 @@ async def run_agent(
 
                 if warnings_given > 3:
                     logger.error("Agent ignored 3 stuck warnings for this screen — force stopping")
-                    return AgentResult(success=False, summary="Force stopped: stuck on the same screen", steps_taken=step, usage=total_usage, model=llm.model, usage_by_model=usage_by_model)
+                    return AgentResult(success=False, summary="Force stopped: stuck on the same screen", steps_taken=step, usage=total_usage, model=llm.model, usage_by_model=usage_by_model, final_url=current_url)
                 stuck_hint = (
                     f"\n\nWARNING ({warnings_given}/3): This exact screen has appeared {repeat_count} times already. "
                     "You are stuck. Try a COMPLETELY different approach, or use the fail action if you cannot proceed. "
@@ -326,7 +329,7 @@ async def run_agent(
 
             if not isinstance(response, AgentResponse):
                 logger.error("Unexpected response type: %s", type(response))
-                return AgentResult(success=False, summary=f"Unexpected LLM response: {response}", steps_taken=step, usage=total_usage, model=llm.model, usage_by_model=usage_by_model)
+                return AgentResult(success=False, summary=f"Unexpected LLM response: {response}", steps_taken=step, usage=total_usage, model=llm.model, usage_by_model=usage_by_model, final_url=current_url)
 
             logger.info("  observation: %s", response.observation[:100])
             logger.info("  reasoning: %s", response.reasoning[:100])
@@ -374,7 +377,7 @@ async def run_agent(
                         conversation=conversation, last_url=current_url, usage=total_usage,
                         use_smart_model=smart_mode_requested,
                     ))
-                return AgentResult(success=True, summary=response.action.summary, steps_taken=step, usage=total_usage, model=llm.model, usage_by_model=usage_by_model)
+                return AgentResult(success=True, summary=response.action.summary, steps_taken=step, usage=total_usage, model=llm.model, usage_by_model=usage_by_model, final_url=current_url)
 
             if isinstance(response.action, FailAction):
                 logger.warning("Scenario failed: %s", response.action.reason)
@@ -385,7 +388,7 @@ async def run_agent(
                         conversation=conversation, last_url=current_url, usage=total_usage,
                         use_smart_model=smart_mode_requested,
                     ))
-                return AgentResult(success=False, summary=response.action.reason, steps_taken=step, usage=total_usage, model=llm.model, usage_by_model=usage_by_model)
+                return AgentResult(success=False, summary=response.action.reason, steps_taken=step, usage=total_usage, model=llm.model, usage_by_model=usage_by_model, final_url=current_url)
 
             # Execute the action
             await _execute_action(browser, response)

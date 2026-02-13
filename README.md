@@ -145,3 +145,18 @@ The LLM can choose from these actions at each step:
 - **Conversation compression** — When context grows beyond 150 messages (or during model switch), older messages are summarized by the LLM to stay within context limits
 - **Global timeout** — 30-minute hard limit per run
 - **Prompt caching** — Anthropic models use prompt caching to reduce costs (10% read cost, 1.25x write cost)
+
+## Testing
+
+```bash
+# Install test dependencies
+uv sync --dev
+
+# Run unit tests only (fast, no API calls)
+make test
+
+# Run integration tests (slow, makes real LLM API calls, ~$0.20)
+make test-integration
+```
+
+See [tests/README.md](tests/README.md) for more details on the test suite.

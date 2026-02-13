@@ -1,4 +1,4 @@
-.PHONY: install run run-visible run-pause resume resume-last help
+.PHONY: install run run-visible run-pause resume resume-last test test-integration help
 
 URL ?=
 SCENARIO ?=
@@ -31,6 +31,12 @@ resume:
 
 resume-last:
 	uv run python main.py --resume-last --no-headless $(VERBOSE_FLAG)
+
+test:
+	uv run pytest -m "not integration" -v
+
+test-integration:
+	uv run pytest -m integration -v
 
 help:
 	uv run python main.py --help
