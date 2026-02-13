@@ -7,11 +7,11 @@ The agent works by repeatedly taking screenshots, sending them to a vision-capab
 ## How it works
 
 ```
-┌─────────────┐     screenshot      ┌───────────┐
+┌──────────────┐     screenshot      ┌───────────┐
 │  Playwright  │ ──────────────────► │  Vision   │
 │   Browser    │                     │   LLM     │
 │              │ ◄────────────────── │           │
-└─────────────┘   click/type/scroll  └───────────┘
+└──────────────┘  click/type/scroll  └───────────┘
        │                                   │
        └───── repeat until done ───────────┘
 ```
