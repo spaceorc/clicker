@@ -122,6 +122,7 @@ async def run_agent(
     screenshots_dir: Path | None = None,
     on_step_done: Callable[[ResumeState], None] | None = None,
     resume: ResumeState | None = None,
+    fallback_llm: LlmCaller | None = None,
 ) -> AgentResult:
     """Run the agent loop.
 
@@ -135,6 +136,7 @@ async def run_agent(
         screenshots_dir: If set, save each step's screenshot as PNG here
         on_step_done: Callback invoked after each step with current state snapshot
         resume: If provided, resume from this state instead of starting fresh
+        fallback_llm: Optional fallback LLM to use when primary model gets stuck
 
     Returns:
         AgentResult with success status, summary, steps taken, and usage
@@ -173,6 +175,9 @@ async def run_agent(
         screenshots_dir.mkdir(parents=True, exist_ok=True)
         logger.info("Saving screenshots to %s", screenshots_dir)
 
+    # Track whether we've switched to fallback model
+    using_fallback = False
+
     try:
         while True:
             step += 1
@@ -205,9 +210,17 @@ async def run_agent(
                 warnings_given = screenshot_warnings[screenshot_hash]
                 logger.warning("Same screenshot seen %d times, warned %d/3", repeat_count, warnings_given)
                 console_output.step_warning(f"Same screen seen {repeat_count} times — warning {warnings_given}/3")
+
+                # Switch to fallback model on first stuck warning if available
+                if warnings_given == 1 and fallback_llm is not None and not using_fallback:
+                    logger.info("Switching to fallback model: %s", fallback_llm.model)
+                    console_output.model_switch(llm.model, fallback_llm.model, "Agent appears stuck")
+                    llm = fallback_llm
+                    using_fallback = True
+
                 if warnings_given > 3:
                     logger.error("Agent ignored 3 stuck warnings for this screen — force stopping")
-                    return AgentResult(success=False, summary="Force stopped: stuck on the same screen", steps_taken=step, usage=total_usage)
+                    return AgentResult(success=False, summary="Force stopped: stuck on the same screen", steps_taken=step, usage=total_usage, model=llm.model)
                 stuck_hint = (
                     f"\n\nWARNING ({warnings_given}/3): This exact screen has appeared {repeat_count} times already. "
                     "You are stuck. Try a COMPLETELY different approach, or use the fail action if you cannot proceed. "

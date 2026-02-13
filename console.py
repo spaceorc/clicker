@@ -36,6 +36,12 @@ def step_warning(message: str) -> None:
     console.print(f"  [bold yellow]⚠ {message}[/bold yellow]")
 
 
+def model_switch(from_model: str, to_model: str, reason: str) -> None:
+    """Print model switch notification."""
+    console.print(f"\n[bold bright_yellow]🔄 Switching models: {reason}[/bold bright_yellow]")
+    console.print(f"  [dim]{from_model}[/dim] → [bold bright_green]{to_model}[/bold bright_green]")
+
+
 def step_usage(usage: UsageStats, model: str = "", total_usage: UsageStats | None = None) -> None:
     """Print compact per-step token usage and cumulative total."""
     parts = [f"{usage.input_tokens} in", f"{usage.output_tokens} out"]

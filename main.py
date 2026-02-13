@@ -31,7 +31,12 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model",
         default=None,
-        help="LLM model in provider/model format (default: anthropic_vertex/claude-sonnet-4-5@20250929)",
+        help="LLM model in provider/model format (default: anthropic_vertex/claude-haiku-4-5@20251001)",
+    )
+    parser.add_argument(
+        "--fallback-model",
+        default=None,
+        help="Fallback to this model if primary model gets stuck or fails (e.g., anthropic_vertex/claude-sonnet-4-5@20250929)",
     )
     parser.add_argument(
         "--no-headless",
@@ -112,6 +117,12 @@ async def _run(args: argparse.Namespace) -> AgentResult:
     provider, model = parse_model_spec(model_spec)
     llm = get_llm_caller(provider, model)
 
+    # Create fallback LLM if specified
+    fallback_llm = None
+    if args.fallback_model:
+        fallback_provider, fallback_model_name = parse_model_spec(args.fallback_model)
+        fallback_llm = get_llm_caller(fallback_provider, fallback_model_name)
+
     headless = not args.no_headless
     viewport = ViewportSize()
     browser = BrowserController(viewport=viewport, headless=headless)
@@ -156,6 +167,7 @@ async def _run(args: argparse.Namespace) -> AgentResult:
             screenshots_dir=args.run_dir / "screenshots",
             on_step_done=on_step_done,
             resume=resume_state,
+            fallback_llm=fallback_llm,
         )
         return result
     finally:
@@ -235,7 +247,8 @@ def main() -> None:
         if not args.url or not args.scenario:
             print("Error: url and scenario are required for new runs", file=sys.stderr)
             sys.exit(1)
-        args.model = args.model or "anthropic_vertex/claude-sonnet-4-5@20250929"
+        args.model = args.model or "anthropic_vertex/claude-haiku-4-5@20251001"
+        args.fallback_model = args.fallback_model or "anthropic_vertex/claude-sonnet-4-5@20250929"
         args.resume_state = None
         args.run_dir = Path("sessions") / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         args.run_dir.mkdir(parents=True, exist_ok=True)
