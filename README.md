@@ -1,6 +1,6 @@
 # Clicker
 
-[![Tests](https://github.com/spaceorc/clicker/actions/workflows/test.yml/badge.svg)](https://github.com/spaceorc/clicker/actions/workflows/test.yml)
+[![Tests](https://github.com/spaceorc/clicker/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/spaceorc/clicker/actions/workflows/test.yml)
 
 LLM-driven browser automation agent. Takes a URL and a goal, then autonomously navigates the page — clicking buttons, filling forms, scrolling, dragging elements — until the goal is achieved.
 
