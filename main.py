@@ -258,7 +258,36 @@ def main() -> None:
     console_output.console.print(f"[bold]Model:[/bold] {args.model}")
     console_output.console.print(f"[bold]Session:[/bold] {args.run_dir}")
 
-    result = asyncio.run(_run(args))
+    try:
+        result = asyncio.run(_run(args))
+    except KeyboardInterrupt:
+        console_output.console.print("\n[yellow]Interrupted by user (Ctrl+C)[/yellow]")
+        # Load last saved session state to get usage stats
+        session_file = args.run_dir / "session.json"
+        if session_file.exists():
+            import json
+            data = json.loads(session_file.read_text(encoding="utf-8"))
+            data["status"] = "interrupted"
+            import tempfile, os
+            fd, tmp_path = tempfile.mkstemp(dir=args.run_dir, suffix=".tmp")
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            Path(tmp_path).replace(session_file)
+            # Show final stats
+            from llm_caller.base import UsageStats
+            usage = UsageStats(
+                input_tokens=data["usage"]["input_tokens"],
+                output_tokens=data["usage"]["output_tokens"],
+                cache_read_tokens=data["usage"]["cache_read_tokens"],
+                cache_creation_tokens=data["usage"]["cache_creation_tokens"],
+            )
+            console_output.result_fail(
+                "Interrupted by user",
+                data["step"],
+                usage,
+                data["model"],
+            )
+        sys.exit(130)  # Standard exit code for Ctrl+C
 
     _save_final_status(args, result)
 

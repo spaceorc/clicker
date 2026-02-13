@@ -25,7 +25,7 @@ def step_start(step: int) -> None:
 
 def step_action(next_step: str, action_repr: str, reasoning: str) -> None:
     """Print agent's reasoning, next_step description and the action."""
-    console.print(f"  [dim]{reasoning}[/dim]")
+    console.print(f"  [cyan]{reasoning}[/cyan]")
     console.print(f"  [bold green]{next_step}[/bold green]")
     console.print(f"  [white]{action_repr}[/white]")
 
@@ -34,8 +34,8 @@ def step_warning(message: str) -> None:
     console.print(f"  [bold yellow]⚠ {message}[/bold yellow]")
 
 
-def step_usage(usage: UsageStats, model: str = "") -> None:
-    """Print compact per-step token usage."""
+def step_usage(usage: UsageStats, model: str = "", total_usage: UsageStats | None = None) -> None:
+    """Print compact per-step token usage and cumulative total."""
     parts = [f"{usage.input_tokens} in", f"{usage.output_tokens} out"]
     cache_parts = []
     if usage.cache_read_tokens:
@@ -46,6 +46,18 @@ def step_usage(usage: UsageStats, model: str = "") -> None:
         parts.append(f"cache: {', '.join(cache_parts)}")
     cost = estimate_cost(model, usage) if model else None
     console.print(f"  [dim]{' / '.join(parts)}{_format_cost(cost)}[/dim]")
+
+    if total_usage:
+        total_parts = [f"{total_usage.input_tokens} in", f"{total_usage.output_tokens} out"]
+        total_cache_parts = []
+        if total_usage.cache_read_tokens:
+            total_cache_parts.append(f"{total_usage.cache_read_tokens} read")
+        if total_usage.cache_creation_tokens:
+            total_cache_parts.append(f"{total_usage.cache_creation_tokens} write")
+        if total_cache_parts:
+            total_parts.append(f"cache: {', '.join(total_cache_parts)}")
+        total_cost = estimate_cost(model, total_usage) if model else None
+        console.print(f"  [bright_black]total: {' / '.join(total_parts)}{_format_cost(total_cost, bright=True)}[/bright_black]")
 
 
 def _format_usage(usage: UsageStats, model: str = "", bright_cost: bool = False) -> str:

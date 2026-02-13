@@ -1,5 +1,6 @@
 """Core agent loop: screenshot -> LLM -> action -> execute."""
 
+import asyncio
 import base64
 import hashlib
 import json
@@ -172,121 +173,133 @@ async def run_agent(
         screenshots_dir.mkdir(parents=True, exist_ok=True)
         logger.info("Saving screenshots to %s", screenshots_dir)
 
-    while True:
-        step += 1
+    try:
+        while True:
+            step += 1
 
-        if max_steps > 0 and step > max_steps:
-            return AgentResult(success=False, summary=f"Max steps ({max_steps}) exceeded", steps_taken=step - 1, usage=total_usage, model=llm.model)
+            if max_steps > 0 and step > max_steps:
+                return AgentResult(success=False, summary=f"Max steps ({max_steps}) exceeded", steps_taken=step - 1, usage=total_usage, model=llm.model)
 
-        elapsed = time.monotonic() - start_time
-        if elapsed > _TIMEOUT_SECONDS:
-            logger.warning("Timeout after %.0f seconds", elapsed)
-            return AgentResult(success=False, summary=f"Timeout after {int(elapsed)}s", steps_taken=step - 1, usage=total_usage, model=llm.model)
+            elapsed = time.monotonic() - start_time
+            if elapsed > _TIMEOUT_SECONDS:
+                logger.warning("Timeout after %.0f seconds", elapsed)
+                return AgentResult(success=False, summary=f"Timeout after {int(elapsed)}s", steps_taken=step - 1, usage=total_usage, model=llm.model)
 
-        # Take screenshot
-        screenshot_b64 = await browser.screenshot_base64()
-        current_url = await browser.current_url()
+            # Take screenshot
+            screenshot_b64 = await browser.screenshot_base64()
+            current_url = await browser.current_url()
 
-        if screenshots_dir is not None:
-            (screenshots_dir / f"step_{step:03d}.png").write_bytes(base64.b64decode(screenshot_b64))
+            if screenshots_dir is not None:
+                (screenshots_dir / f"step_{step:03d}.png").write_bytes(base64.b64decode(screenshot_b64))
 
-        # Track screenshot repeats
-        screenshot_hash = hashlib.md5(screenshot_b64.encode()).hexdigest()
-        screenshot_counts[screenshot_hash] += 1
-        repeat_count = screenshot_counts[screenshot_hash]
+            # Track screenshot repeats
+            screenshot_hash = hashlib.md5(screenshot_b64.encode()).hexdigest()
+            screenshot_counts[screenshot_hash] += 1
+            repeat_count = screenshot_counts[screenshot_hash]
 
-        console_output.step_start(step)
+            console_output.step_start(step)
 
-        stuck_hint = ""
-        if repeat_count >= _STUCK_SCREENSHOT_LIMIT:
-            screenshot_warnings[screenshot_hash] += 1
-            warnings_given = screenshot_warnings[screenshot_hash]
-            logger.warning("Same screenshot seen %d times, warned %d/3", repeat_count, warnings_given)
-            console_output.step_warning(f"Same screen seen {repeat_count} times — warning {warnings_given}/3")
-            if warnings_given > 3:
-                logger.error("Agent ignored 3 stuck warnings for this screen — force stopping")
-                return AgentResult(success=False, summary="Force stopped: stuck on the same screen", steps_taken=step, usage=total_usage)
-            stuck_hint = (
-                f"\n\nWARNING ({warnings_given}/3): This exact screen has appeared {repeat_count} times already. "
-                "You are stuck. Try a COMPLETELY different approach, or use the fail action if you cannot proceed. "
-                "You will be force-stopped after 3 warnings."
-            )
-
-        # Build user message with screenshot
-        step_label = f"Step {step}" if max_steps == 0 else f"Step {step}/{max_steps}"
-        user_message = ConversationMessage(
-            role=MessageRole.USER,
-            content=[
-                ImageContent(data=screenshot_b64, media_type="image/png"),
-                TextContent(text=f"Current URL: {current_url}\n{step_label}. What should I do next?{stuck_hint}"),
-            ],
-        )
-        conversation.append(user_message)
-
-        # Call LLM
-        logger.info("%s — calling LLM...", step_label)
-        response, step_usage = await llm.call_llm(system_prompt, conversation, AgentResponse)
-        total_usage += step_usage
-        console_output.step_usage(step_usage, llm.model)
-
-        if not isinstance(response, AgentResponse):
-            logger.error("Unexpected response type: %s", type(response))
-            return AgentResult(success=False, summary=f"Unexpected LLM response: {response}", steps_taken=step, usage=total_usage, model=llm.model)
-
-        logger.info("  observation: %s", response.observation[:100])
-        logger.info("  reasoning: %s", response.reasoning[:100])
-        logger.info("  next_step: %s", response.next_step)
-        logger.info("  action: %s", response.action)
-
-        console_output.step_action(response.next_step, str(response.action), response.reasoning)
-
-        # Store assistant response as plain text to save tokens
-        conversation.append(ConversationMessage(
-            role=MessageRole.ASSISTANT,
-            content=response.model_dump_json(),
-        ))
-
-        # Replace previous user messages that had images with text-only versions to save tokens
-        if len(conversation) >= 4:
-            old_msg = conversation[-3]
-            if old_msg.role == MessageRole.USER and isinstance(old_msg.content, list):
-                text_parts = [p.text for p in old_msg.content if isinstance(p, TextContent)]
-                conversation[-3] = ConversationMessage(
-                    role=MessageRole.USER,
-                    content="[screenshot omitted] " + " ".join(text_parts),
+            stuck_hint = ""
+            if repeat_count >= _STUCK_SCREENSHOT_LIMIT:
+                screenshot_warnings[screenshot_hash] += 1
+                warnings_given = screenshot_warnings[screenshot_hash]
+                logger.warning("Same screenshot seen %d times, warned %d/3", repeat_count, warnings_given)
+                console_output.step_warning(f"Same screen seen {repeat_count} times — warning {warnings_given}/3")
+                if warnings_given > 3:
+                    logger.error("Agent ignored 3 stuck warnings for this screen — force stopping")
+                    return AgentResult(success=False, summary="Force stopped: stuck on the same screen", steps_taken=step, usage=total_usage)
+                stuck_hint = (
+                    f"\n\nWARNING ({warnings_given}/3): This exact screen has appeared {repeat_count} times already. "
+                    "You are stuck. Try a COMPLETELY different approach, or use the fail action if you cannot proceed. "
+                    "You will be force-stopped after 3 warnings."
                 )
 
-        # Compress old conversation if it's getting too long
-        conversation = _compress_conversation(conversation)
+            # Build user message with screenshot
+            step_label = f"Step {step}" if max_steps == 0 else f"Step {step}/{max_steps}"
+            user_message = ConversationMessage(
+                role=MessageRole.USER,
+                content=[
+                    ImageContent(data=screenshot_b64, media_type="image/png"),
+                    TextContent(text=f"Current URL: {current_url}\n{step_label}. What should I do next?{stuck_hint}"),
+                ],
+            )
+            conversation.append(user_message)
 
-        # Check for terminal actions
-        if isinstance(response.action, DoneAction):
-            logger.info("Scenario completed: %s", response.action.summary)
+            # Call LLM
+            logger.info("%s — calling LLM...", step_label)
+            response, step_usage = await llm.call_llm(system_prompt, conversation, AgentResponse)
+            total_usage += step_usage
+            console_output.step_usage(step_usage, llm.model, total_usage)
+
+            if not isinstance(response, AgentResponse):
+                logger.error("Unexpected response type: %s", type(response))
+                return AgentResult(success=False, summary=f"Unexpected LLM response: {response}", steps_taken=step, usage=total_usage, model=llm.model)
+
+            logger.info("  observation: %s", response.observation[:100])
+            logger.info("  reasoning: %s", response.reasoning[:100])
+            logger.info("  next_step: %s", response.next_step)
+            logger.info("  action: %s", response.action)
+
+            console_output.step_action(response.next_step, str(response.action), response.reasoning)
+
+            # Store assistant response as plain text to save tokens
+            conversation.append(ConversationMessage(
+                role=MessageRole.ASSISTANT,
+                content=response.model_dump_json(),
+            ))
+
+            # Replace previous user messages that had images with text-only versions to save tokens
+            if len(conversation) >= 4:
+                old_msg = conversation[-3]
+                if old_msg.role == MessageRole.USER and isinstance(old_msg.content, list):
+                    text_parts = [p.text for p in old_msg.content if isinstance(p, TextContent)]
+                    conversation[-3] = ConversationMessage(
+                        role=MessageRole.USER,
+                        content="[screenshot omitted] " + " ".join(text_parts),
+                    )
+
+            # Compress old conversation if it's getting too long
+            conversation = _compress_conversation(conversation)
+
+            # Check for terminal actions
+            if isinstance(response.action, DoneAction):
+                logger.info("Scenario completed: %s", response.action.summary)
+                if on_step_done:
+                    on_step_done(ResumeState(
+                        step=step, elapsed_seconds=time.monotonic() - start_time,
+                        screenshot_counts=screenshot_counts, screenshot_warnings=screenshot_warnings,
+                        conversation=conversation, last_url=current_url, usage=total_usage,
+                    ))
+                return AgentResult(success=True, summary=response.action.summary, steps_taken=step, usage=total_usage, model=llm.model)
+
+            if isinstance(response.action, FailAction):
+                logger.warning("Scenario failed: %s", response.action.reason)
+                if on_step_done:
+                    on_step_done(ResumeState(
+                        step=step, elapsed_seconds=time.monotonic() - start_time,
+                        screenshot_counts=screenshot_counts, screenshot_warnings=screenshot_warnings,
+                        conversation=conversation, last_url=current_url, usage=total_usage,
+                    ))
+                return AgentResult(success=False, summary=response.action.reason, steps_taken=step, usage=total_usage, model=llm.model)
+
+            # Execute the action
+            await _execute_action(browser, response)
+
+            # Notify callback after action execution
             if on_step_done:
                 on_step_done(ResumeState(
                     step=step, elapsed_seconds=time.monotonic() - start_time,
                     screenshot_counts=screenshot_counts, screenshot_warnings=screenshot_warnings,
-                    conversation=conversation, last_url=current_url, usage=total_usage,
-                ))
-            return AgentResult(success=True, summary=response.action.summary, steps_taken=step, usage=total_usage, model=llm.model)
-
-        if isinstance(response.action, FailAction):
-            logger.warning("Scenario failed: %s", response.action.reason)
-            if on_step_done:
-                on_step_done(ResumeState(
-                    step=step, elapsed_seconds=time.monotonic() - start_time,
-                    screenshot_counts=screenshot_counts, screenshot_warnings=screenshot_warnings,
-                    conversation=conversation, last_url=current_url, usage=total_usage,
-                ))
-            return AgentResult(success=False, summary=response.action.reason, steps_taken=step, usage=total_usage, model=llm.model)
-
-        # Execute the action
-        await _execute_action(browser, response)
-
-        # Notify callback after action execution
+                    conversation=conversation, last_url=await browser.current_url(), usage=total_usage,
+            ))
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        logger.info("Agent interrupted by user")
+        # Save final state before raising
+        current_url = await browser.current_url()
         if on_step_done:
             on_step_done(ResumeState(
                 step=step, elapsed_seconds=time.monotonic() - start_time,
                 screenshot_counts=screenshot_counts, screenshot_warnings=screenshot_warnings,
-                conversation=conversation, last_url=await browser.current_url(), usage=total_usage,
+                conversation=conversation, last_url=current_url, usage=total_usage,
             ))
+        raise
