@@ -263,9 +263,9 @@ def main() -> None:
     _save_final_status(args, result)
 
     if result.success:
-        console_output.result_success(result.summary, result.steps_taken, result.usage)
+        console_output.result_success(result.summary, result.steps_taken, result.usage, result.model)
     else:
-        console_output.result_fail(result.summary, result.steps_taken, result.usage)
+        console_output.result_fail(result.summary, result.steps_taken, result.usage, result.model)
         sys.exit(1)
 
 
