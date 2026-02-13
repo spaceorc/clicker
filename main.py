@@ -266,12 +266,14 @@ def main() -> None:
     log_datefmt = "%H:%M:%S"
 
     # Set up logging to file only (console output via Rich)
+    # Use DEBUG level only if -v flag is passed
+    log_level = logging.DEBUG if args.verbose else logging.INFO
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG)
+    root_logger.setLevel(log_level)
 
     file_mode = "a" if resuming else "w"
     file_handler = logging.FileHandler(args.run_dir / "log.txt", mode=file_mode, encoding="utf-8")
-    file_handler.setLevel(logging.DEBUG)
+    file_handler.setLevel(log_level)
     file_handler.setFormatter(logging.Formatter(log_format, datefmt=log_datefmt))
     root_logger.addHandler(file_handler)
 
