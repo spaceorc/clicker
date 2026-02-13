@@ -1,0 +1,16 @@
+[project]
+name = "clicker"
+version = "0.1.0"
+description = "Browser automation tool that uses LLM to navigate customer scenarios"
+requires-python = ">=3.13"
+dependencies = [
+    "anthropic>=0.79.0",
+    "google-auth>=2.48.0",
+    "google-genai>=1.63.0",
+    "jsonschema>=4.26.0",
+    "openai>=2.20.0",
+    "pillow>=12.1.1",
+    "playwright>=1.58.0",
+    "pydantic>=2.12.5",
+    "python-dotenv>=1.2.1",
+]
