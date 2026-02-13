@@ -2,7 +2,7 @@
 
 URL ?=
 SCENARIO ?=
-MODEL ?= google_vertex/gemini-2.5-flash
+MODEL ?= google_vertex/gemini-2.5-flash-lite
 SESSION ?=
 
 install:

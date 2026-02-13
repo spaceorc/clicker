@@ -31,7 +31,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model",
         default=None,
-        help="LLM model in provider/model format (default: google_vertex/gemini-2.5-flash)",
+        help="LLM model in provider/model format (default: google_vertex/gemini-2.5-flash-lite)",
     )
     parser.add_argument(
         "--fallback-model",
@@ -255,7 +255,7 @@ def main() -> None:
         if not args.url or not args.scenario:
             print("Error: url and scenario are required for new runs", file=sys.stderr)
             sys.exit(1)
-        args.model = args.model or "google_vertex/gemini-2.5-flash"
+        args.model = args.model or "google_vertex/gemini-2.5-flash-lite"
         args.fallback_model = args.fallback_model or "anthropic_vertex/claude-sonnet-4-5@20250929"
         args.resume_state = None
         args.run_dir = Path("sessions") / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
