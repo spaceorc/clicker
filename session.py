@@ -36,6 +36,7 @@ class SessionState:
     screenshot_warnings: dict[str, int]
     conversation: list[dict[str, Any]]
     usage: dict[str, int] = field(default_factory=dict)
+    fallback_model: str | None = None
 
 
 @dataclass
@@ -84,6 +85,7 @@ def save_session(session_dir: Path, state: SessionState) -> None:
         "last_url": state.last_url,
         "scenario": state.scenario,
         "model": state.model,
+        "fallback_model": state.fallback_model,
         "viewport": state.viewport,
         "headless": state.headless,
         "pause": state.pause,
@@ -139,6 +141,7 @@ def load_session(session_dir: Path) -> SessionState:
         screenshot_warnings=data["screenshot_warnings"],
         conversation=data["conversation"],
         usage=data.get("usage", {}),
+        fallback_model=data.get("fallback_model"),
     )
 
 

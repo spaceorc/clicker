@@ -78,6 +78,7 @@ def _make_step_callback(
     url: str,
     scenario: str,
     model: str,
+    fallback_model: str | None,
     viewport: ViewportSize,
     headless: bool,
     pause: bool,
@@ -92,6 +93,7 @@ def _make_step_callback(
             last_url=state.last_url,
             scenario=scenario,
             model=model,
+            fallback_model=fallback_model,
             viewport={"width": viewport.width, "height": viewport.height},
             headless=headless,
             pause=pause,
@@ -153,6 +155,7 @@ async def _run(args: argparse.Namespace) -> AgentResult:
             url=args.url,
             scenario=args.scenario,
             model=model_spec,
+            fallback_model=args.fallback_model,
             viewport=viewport,
             headless=headless,
             pause=args.pause,
@@ -238,7 +241,7 @@ def main() -> None:
         args.url = session.url
         args.scenario = session.scenario
         args.model = args.model or session.model
-        args.fallback_model = args.fallback_model or "anthropic_vertex/claude-sonnet-4-5@20250929"
+        args.fallback_model = args.fallback_model or session.fallback_model or "anthropic_vertex/claude-sonnet-4-5@20250929"
         args.max_steps = args.max_steps or session.max_steps
         args.pause = args.pause or session.pause
         args.resume_state = build_resume_state(session)
