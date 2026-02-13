@@ -82,11 +82,33 @@ def _format_usage(usage: UsageStats, model: str = "", bright_cost: bool = False)
     return f"{' / '.join(parts)}{_format_cost(cost, bright=bright_cost)}"
 
 
-def result_success(summary: str, steps: int, usage: UsageStats | None = None, model: str = "") -> None:
+def result_success(summary: str, steps: int, usage: UsageStats | None = None, model: str = "", usage_by_model: dict[str, UsageStats] | None = None) -> None:
     usage_line = f"\n[white]tokens: {_format_usage(usage, model, bright_cost=True)}[/white]" if usage else ""
+
+    # Add per-model breakdown if multiple models were used
+    if usage_by_model and len(usage_by_model) > 1:
+        from llm_caller.pricing import estimate_cost
+        breakdown_lines = []
+        for mdl, mdl_usage in usage_by_model.items():
+            cost = estimate_cost(mdl, mdl_usage)
+            cost_str = f" (~${cost:.2f})" if cost is not None else ""
+            breakdown_lines.append(f"  {mdl}: {mdl_usage.input_tokens} in / {mdl_usage.output_tokens} out{cost_str}")
+        usage_line += f"\n[dim]{chr(10).join(breakdown_lines)}[/dim]"
+
     console.print(Panel(f"{summary}\n[dim]{steps} steps[/dim]{usage_line}", title="Done", border_style="green"))
 
 
-def result_fail(summary: str, steps: int, usage: UsageStats | None = None, model: str = "") -> None:
+def result_fail(summary: str, steps: int, usage: UsageStats | None = None, model: str = "", usage_by_model: dict[str, UsageStats] | None = None) -> None:
     usage_line = f"\n[white]tokens: {_format_usage(usage, model, bright_cost=True)}[/white]" if usage else ""
+
+    # Add per-model breakdown if multiple models were used
+    if usage_by_model and len(usage_by_model) > 1:
+        from llm_caller.pricing import estimate_cost
+        breakdown_lines = []
+        for mdl, mdl_usage in usage_by_model.items():
+            cost = estimate_cost(mdl, mdl_usage)
+            cost_str = f" (~${cost:.2f})" if cost is not None else ""
+            breakdown_lines.append(f"  {mdl}: {mdl_usage.input_tokens} in / {mdl_usage.output_tokens} out{cost_str}")
+        usage_line += f"\n[dim]{chr(10).join(breakdown_lines)}[/dim]"
+
     console.print(Panel(f"{summary}\n[dim]{steps} steps[/dim]{usage_line}", title="Failed", border_style="red"))

@@ -7,7 +7,7 @@ import json
 import logging
 import time
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
@@ -42,6 +42,7 @@ class AgentResult:
     steps_taken: int
     usage: UsageStats
     model: str = ""
+    usage_by_model: dict[str, UsageStats] = field(default_factory=dict)
 
 
 _POST_ACTION_DELAY_MS = 2000
@@ -177,18 +178,25 @@ async def run_agent(
 
     # Track whether we've switched to fallback model
     using_fallback = False
+    primary_llm = llm  # Save reference to primary model
+
+    # Track usage separately by model
+    usage_by_model: dict[str, UsageStats] = {}
+
+    # Track last screenshot hash to detect when we've unstuck
+    last_screenshot_hash: str | None = None
 
     try:
         while True:
             step += 1
 
             if max_steps > 0 and step > max_steps:
-                return AgentResult(success=False, summary=f"Max steps ({max_steps}) exceeded", steps_taken=step - 1, usage=total_usage, model=llm.model)
+                return AgentResult(success=False, summary=f"Max steps ({max_steps}) exceeded", steps_taken=step - 1, usage=total_usage, model=llm.model, usage_by_model=usage_by_model)
 
             elapsed = time.monotonic() - start_time
             if elapsed > _TIMEOUT_SECONDS:
                 logger.warning("Timeout after %.0f seconds", elapsed)
-                return AgentResult(success=False, summary=f"Timeout after {int(elapsed)}s", steps_taken=step - 1, usage=total_usage, model=llm.model)
+                return AgentResult(success=False, summary=f"Timeout after {int(elapsed)}s", steps_taken=step - 1, usage=total_usage, model=llm.model, usage_by_model=usage_by_model)
 
             # Take screenshot
             screenshot_b64 = await browser.screenshot_base64()
@@ -201,6 +209,15 @@ async def run_agent(
             screenshot_hash = hashlib.md5(screenshot_b64.encode()).hexdigest()
             screenshot_counts[screenshot_hash] += 1
             repeat_count = screenshot_counts[screenshot_hash]
+
+            # If using fallback and screenshot changed, switch back to primary
+            if using_fallback and last_screenshot_hash and screenshot_hash != last_screenshot_hash:
+                logger.info("Screenshot changed, switching back to primary model: %s", primary_llm.model)
+                console_output.model_switch(llm.model, primary_llm.model, "Successfully unstuck")
+                llm = primary_llm
+                using_fallback = False
+
+            last_screenshot_hash = screenshot_hash
 
             console_output.step_start(step)
 
@@ -220,7 +237,7 @@ async def run_agent(
 
                 if warnings_given > 3:
                     logger.error("Agent ignored 3 stuck warnings for this screen — force stopping")
-                    return AgentResult(success=False, summary="Force stopped: stuck on the same screen", steps_taken=step, usage=total_usage, model=llm.model)
+                    return AgentResult(success=False, summary="Force stopped: stuck on the same screen", steps_taken=step, usage=total_usage, model=llm.model, usage_by_model=usage_by_model)
                 stuck_hint = (
                     f"\n\nWARNING ({warnings_given}/3): This exact screen has appeared {repeat_count} times already. "
                     "You are stuck. Try a COMPLETELY different approach, or use the fail action if you cannot proceed. "
@@ -242,11 +259,17 @@ async def run_agent(
             logger.info("%s — calling LLM...", step_label)
             response, step_usage = await llm.call_llm(system_prompt, conversation, AgentResponse)
             total_usage += step_usage
+
+            # Track usage by model
+            if llm.model not in usage_by_model:
+                usage_by_model[llm.model] = UsageStats()
+            usage_by_model[llm.model] += step_usage
+
             console_output.step_usage(step_usage, llm.model, total_usage)
 
             if not isinstance(response, AgentResponse):
                 logger.error("Unexpected response type: %s", type(response))
-                return AgentResult(success=False, summary=f"Unexpected LLM response: {response}", steps_taken=step, usage=total_usage, model=llm.model)
+                return AgentResult(success=False, summary=f"Unexpected LLM response: {response}", steps_taken=step, usage=total_usage, model=llm.model, usage_by_model=usage_by_model)
 
             logger.info("  observation: %s", response.observation[:100])
             logger.info("  reasoning: %s", response.reasoning[:100])
@@ -285,7 +308,7 @@ async def run_agent(
                         screenshot_counts=screenshot_counts, screenshot_warnings=screenshot_warnings,
                         conversation=conversation, last_url=current_url, usage=total_usage,
                     ))
-                return AgentResult(success=True, summary=response.action.summary, steps_taken=step, usage=total_usage, model=llm.model)
+                return AgentResult(success=True, summary=response.action.summary, steps_taken=step, usage=total_usage, model=llm.model, usage_by_model=usage_by_model)
 
             if isinstance(response.action, FailAction):
                 logger.warning("Scenario failed: %s", response.action.reason)
@@ -295,7 +318,7 @@ async def run_agent(
                         screenshot_counts=screenshot_counts, screenshot_warnings=screenshot_warnings,
                         conversation=conversation, last_url=current_url, usage=total_usage,
                     ))
-                return AgentResult(success=False, summary=response.action.reason, steps_taken=step, usage=total_usage, model=llm.model)
+                return AgentResult(success=False, summary=response.action.reason, steps_taken=step, usage=total_usage, model=llm.model, usage_by_model=usage_by_model)
 
             # Execute the action
             await _execute_action(browser, response)
