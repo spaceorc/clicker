@@ -25,7 +25,7 @@ def step_start(step: int) -> None:
 
 def step_action(next_step: str, action_repr: str, reasoning: str) -> None:
     """Print agent's reasoning, next_step description and the action."""
-    console.print(f"  [cyan]{reasoning}[/cyan]")
+    console.print(f"  [bright_cyan]{reasoning}[/bright_cyan]")
     console.print(f"  [bold green]{next_step}[/bold green]")
     console.print(f"  [white]{action_repr}[/white]")
 

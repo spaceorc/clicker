@@ -159,7 +159,11 @@ async def _run(args: argparse.Namespace) -> AgentResult:
         )
         return result
     finally:
-        await browser.stop()
+        try:
+            await browser.stop()
+        except Exception:
+            # Ignore errors during browser cleanup (e.g., after Ctrl+C)
+            pass
 
 
 def _save_final_status(args: argparse.Namespace, result: AgentResult) -> None:
