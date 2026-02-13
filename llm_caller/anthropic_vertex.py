@@ -11,7 +11,7 @@ from anthropic.types import MessageParam, TextBlock
 from google.oauth2 import service_account
 from pydantic import BaseModel
 
-from .base import ConversationMessage, ImageContent, JsonSchemaType, LlmCaller, LlmProvider, MessageRole, TextContent
+from .base import ConversationMessage, ImageContent, JsonSchemaType, LlmCaller, LlmProvider, LlmResult, MessageRole, TextContent, UsageStats
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,11 @@ class AnthropicVertexLlmCaller(LlmCaller):
         return self.__model
 
     def _convert_messages(self, conversation_history: list[ConversationMessage]) -> list[dict[str, Any]]:
-        """Convert conversation history to Anthropic message format."""
+        """Convert conversation history to Anthropic message format.
+
+        Adds cache_control breakpoint to the last content block of the second-to-last
+        message to enable prompt caching of the conversation prefix.
+        """
         result: list[dict[str, Any]] = []
         for msg in conversation_history:
             if isinstance(msg.content, str):
@@ -142,6 +146,19 @@ class AnthropicVertexLlmCaller(LlmCaller):
                             },
                         })
                 result.append({"role": _ROLE_TO_ANTHROPIC[msg.role], "content": parts})
+
+        # Add cache_control to last content block of second-to-last message
+        if len(result) >= 2:
+            second_to_last = result[-2]
+            content = second_to_last["content"]
+            if isinstance(content, list) and content:
+                content[-1]["cache_control"] = {"type": "ephemeral"}
+            elif isinstance(content, str):
+                # Convert string content to block list so we can add cache_control
+                second_to_last["content"] = [
+                    {"type": "text", "text": content, "cache_control": {"type": "ephemeral"}}
+                ]
+
         return result
 
     def _create_retry_message(self, error_msg: str) -> dict[str, Any]:
@@ -153,7 +170,7 @@ class AnthropicVertexLlmCaller(LlmCaller):
         system_prompt: str,
         messages: list[dict[str, Any]],
         json_schema: JsonSchemaType,
-    ) -> str | None:
+    ) -> LlmResult:
         """Make the actual API call to Anthropic Vertex AI."""
         client = _get_anthropic_client()
 
@@ -162,6 +179,15 @@ class AnthropicVertexLlmCaller(LlmCaller):
         if json_schema:
             enhanced_system_prompt = system_prompt + _format_schema_prompt(json_schema)
 
+        # Pass system as content block list with cache_control on last block
+        system_blocks: list[dict[str, Any]] = [
+            {
+                "type": "text",
+                "text": enhanced_system_prompt,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ]
+
         # Convert to Anthropic MessageParam format
         anthropic_messages = [MessageParam(role=msg["role"], content=msg["content"]) for msg in messages]  # type: ignore[arg-type]
 
@@ -169,16 +195,24 @@ class AnthropicVertexLlmCaller(LlmCaller):
             model=self.__model,
             max_tokens=self.MAX_TOKENS,
             temperature=self.TEMPERATURE,
-            system=enhanced_system_prompt,
+            system=system_blocks,  # type: ignore[arg-type]
             messages=anthropic_messages,
         )
 
+        # Extract usage stats
+        usage = UsageStats(
+            input_tokens=response.usage.input_tokens,
+            output_tokens=response.usage.output_tokens,
+            cache_read_tokens=getattr(response.usage, "cache_read_input_tokens", 0) or 0,
+            cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
+        )
+
         if not response.content or len(response.content) == 0:
-            return None
+            return LlmResult(text=None, usage=usage)
 
         first_block = response.content[0]
         if not isinstance(first_block, TextBlock):
             logger.warning("First block is not a TextBlock: %s", type(first_block))
-            return None
+            return LlmResult(text=None, usage=usage)
 
-        return first_block.text
+        return LlmResult(text=first_block.text, usage=usage)

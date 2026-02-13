@@ -15,7 +15,7 @@ from openai.types.shared_params import ResponseFormatJSONSchema, ResponseFormatT
 from openai.types.shared_params.response_format_json_schema import JSONSchema
 from pydantic import BaseModel
 
-from .base import ConversationMessage, ImageContent, JsonSchemaType, LlmCaller, LlmProvider, TextContent
+from .base import ConversationMessage, ImageContent, JsonSchemaType, LlmCaller, LlmProvider, LlmResult, TextContent, UsageStats
 
 logger = logging.getLogger(__name__)
 
@@ -264,7 +264,7 @@ class OpenAILlmCaller(LlmCaller):
         system_prompt: str,
         messages: list[dict[str, Any]],
         json_schema: JsonSchemaType,
-    ) -> str | None:
+    ) -> LlmResult:
         """Make the actual API call to OpenAI."""
         client = _get_openai_client()
 
@@ -317,8 +317,16 @@ class OpenAILlmCaller(LlmCaller):
                 logger.error(f"Schema that caused error:\n{json.dumps(strict_schema, indent=2)}")
             raise
 
+        # Extract usage stats
+        usage = UsageStats()
+        if response.usage:
+            usage = UsageStats(
+                input_tokens=response.usage.prompt_tokens,
+                output_tokens=response.usage.completion_tokens,
+            )
+
         if not response.choices or len(response.choices) == 0:
-            return None
+            return LlmResult(text=None, usage=usage)
 
         choice = response.choices[0]
-        return choice.message.content
+        return LlmResult(text=choice.message.content, usage=usage)

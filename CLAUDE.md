@@ -8,7 +8,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 make install          # Install deps + Playwright chromium
 make run-visible URL="..." SCENARIO="..."   # Run with visible browser
 make run-pause URL="..." SCENARIO="..."     # Run with pause for manual login
+make resume SESSION="sessions/2026-..."     # Resume specific session
+make resume-last                            # Resume most recent in-progress session
 uv run python main.py <url> <scenario> [--model provider/model] [--no-headless] [--pause] [--max-steps N] [-v]
+uv run python main.py --resume <session_dir> [--no-headless] [-v]
+uv run python main.py --resume-last [--no-headless] [-v]
 ```
 
 ## Architecture

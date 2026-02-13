@@ -1,8 +1,9 @@
-.PHONY: install run run-visible run-pause help
+.PHONY: install run run-visible run-pause resume resume-last help
 
 URL ?=
 SCENARIO ?=
-MODEL ?= openai/gpt-4o
+MODEL ?= anthropic_vertex/claude-sonnet-4-5@20250929
+SESSION ?=
 
 install:
 	uv sync
@@ -16,6 +17,12 @@ run-visible:
 
 run-pause:
 	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless --pause -v
+
+resume:
+	uv run python main.py --resume "$(SESSION)" --no-headless -v
+
+resume-last:
+	uv run python main.py --resume-last --no-headless -v
 
 help:
 	uv run python main.py --help

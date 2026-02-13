@@ -12,7 +12,7 @@ from google.genai.types import Blob, Content, GenerateContentConfig, Part
 from google.oauth2 import service_account
 from pydantic import BaseModel
 
-from .base import ConversationMessage, ImageContent, JsonSchemaType, LlmCaller, LlmProvider, MessageRole, TextContent
+from .base import ConversationMessage, ImageContent, JsonSchemaType, LlmCaller, LlmProvider, LlmResult, MessageRole, TextContent, UsageStats
 
 logger = logging.getLogger(__name__)
 
@@ -225,7 +225,7 @@ class GoogleVertexLlmCaller(LlmCaller):
         system_prompt: str,
         messages: list[dict[str, Any]],
         json_schema: JsonSchemaType,
-    ) -> str | None:
+    ) -> LlmResult:
         """Make the actual API call to Google Vertex AI (Gemini)."""
         client = _get_gemini_client()
 
@@ -271,17 +271,25 @@ class GoogleVertexLlmCaller(LlmCaller):
             config=config,
         )
 
+        # Extract usage stats
+        usage = UsageStats()
+        if response.usage_metadata:
+            usage = UsageStats(
+                input_tokens=response.usage_metadata.prompt_token_count or 0,
+                output_tokens=response.usage_metadata.candidates_token_count or 0,
+            )
+
         # Extract text from response
         if not response.candidates:
-            return None
+            return LlmResult(text=None, usage=usage)
 
         content = response.candidates[0].content
         if not content or not content.parts:
-            return None
+            return LlmResult(text=None, usage=usage)
 
         # Concatenate all text parts
         text_parts = [part.text for part in content.parts if part.text]
         if not text_parts:
-            return None
+            return LlmResult(text=None, usage=usage)
 
-        return "".join(text_parts)
+        return LlmResult(text="".join(text_parts), usage=usage)

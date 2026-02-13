@@ -18,6 +18,31 @@ JsonSchemaType = type[BaseModel] | dict[str, Any] | None
 logger = logging.getLogger(__name__)
 
 
+@dataclass(slots=True)
+class UsageStats:
+    """Token usage statistics from an LLM call."""
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_creation_tokens: int = 0
+
+    def __iadd__(self, other: "UsageStats") -> "UsageStats":
+        self.input_tokens += other.input_tokens
+        self.output_tokens += other.output_tokens
+        self.cache_read_tokens += other.cache_read_tokens
+        self.cache_creation_tokens += other.cache_creation_tokens
+        return self
+
+
+@dataclass(frozen=True, slots=True)
+class LlmResult:
+    """Result from a single LLM API call."""
+
+    text: str | None
+    usage: UsageStats
+
+
 class MessageRole(str, Enum):
     """Role in conversation message."""
 
@@ -79,7 +104,7 @@ class LlmCaller(ABC):
         system_prompt: str,
         messages: list[dict[str, Any]],
         json_schema: JsonSchemaType,
-    ) -> str | None:
+    ) -> LlmResult:
         """Make the actual API call to the LLM provider.
 
         Args:
@@ -88,7 +113,7 @@ class LlmCaller(ABC):
             json_schema: Optional schema for structured output
 
         Returns:
-            Text content from the response, or None if empty response
+            LlmResult with text content and usage stats
         """
         ...
 
@@ -173,7 +198,7 @@ class LlmCaller(ABC):
         system_prompt: str,
         conversation_history: list[ConversationMessage],
         json_schema: JsonSchemaType = None,
-    ) -> BaseModel | dict[str, Any] | str:
+    ) -> tuple[BaseModel | dict[str, Any] | str, UsageStats]:
         """Call LLM and get response.
 
         Args:
@@ -183,9 +208,11 @@ class LlmCaller(ABC):
                         or a raw JSON schema dict
 
         Returns:
+            Tuple of:
             - Instance of json_schema model if Pydantic model class provided
             - dict[str, Any] if raw JSON schema dict provided
             - str if no schema provided
+            And UsageStats with token counts
         """
         # Determine schema type
         is_pydantic_schema = isinstance(json_schema, type) and issubclass(json_schema, BaseModel)  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -194,9 +221,13 @@ class LlmCaller(ABC):
         # Convert messages to provider format
         messages = self._convert_messages(conversation_history)
 
+        total_usage = UsageStats()
+
         try:
             for attempt in range(self.MAX_RETRIES):
-                text_content = await self._do_api_call(system_prompt, messages, json_schema)
+                result = await self._do_api_call(system_prompt, messages, json_schema)
+                total_usage += result.usage
+                text_content = result.text
 
                 if text_content is None:
                     error_msg = f"Empty response received from {self.provider}"
@@ -205,13 +236,13 @@ class LlmCaller(ABC):
                     continue
 
                 if not json_schema:
-                    return text_content
+                    return text_content, total_usage
 
                 # Parse and validate JSON response
                 try:
                     text_content = self._strip_markdown_code_block(text_content)
                     data = json.loads(text_content)
-                    return self._validate_json_response(data, json_schema, is_pydantic_schema, is_dict_schema)
+                    return self._validate_json_response(data, json_schema, is_pydantic_schema, is_dict_schema), total_usage
 
                 except json.JSONDecodeError as e:
                     error_msg = f"Invalid JSON format: {e}. Content: {text_content[:200]}"
@@ -242,11 +273,11 @@ class LlmCaller(ABC):
                     continue
 
             # All retries exhausted
-            return self._handle_exhausted_retries(json_schema, is_pydantic_schema, is_dict_schema)
+            return self._handle_exhausted_retries(json_schema, is_pydantic_schema, is_dict_schema), total_usage
 
         except Exception as e:
             logger.error(f"Error generating response: {e}")
-            return self._handle_error(e, json_schema, is_pydantic_schema, is_dict_schema)
+            return self._handle_error(e, json_schema, is_pydantic_schema, is_dict_schema), total_usage
 
     def _handle_exhausted_retries(
         self,

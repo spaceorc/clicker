@@ -8,9 +8,12 @@ import time
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
+import console as console_output
 from browser.controller import BrowserController
-from llm_caller import ConversationMessage, ImageContent, LlmCaller, MessageRole, TextContent
+from llm_caller import ConversationMessage, ImageContent, LlmCaller, MessageRole, TextContent, UsageStats
+from session import ResumeState
 
 from .actions import (
     AgentResponse,
@@ -36,6 +39,7 @@ class AgentResult:
     success: bool
     summary: str
     steps_taken: int
+    usage: UsageStats
 
 
 _POST_ACTION_DELAY_MS = 2000
@@ -114,6 +118,8 @@ async def run_agent(
     scenario: str,
     max_steps: int = 0,
     screenshots_dir: Path | None = None,
+    on_step_done: Callable[[ResumeState], None] | None = None,
+    resume: ResumeState | None = None,
 ) -> AgentResult:
     """Run the agent loop.
 
@@ -125,31 +131,56 @@ async def run_agent(
         scenario: Goal/scenario to accomplish
         max_steps: Maximum number of steps (0 = unlimited)
         screenshots_dir: If set, save each step's screenshot as PNG here
+        on_step_done: Callback invoked after each step with current state snapshot
+        resume: If provided, resume from this state instead of starting fresh
 
     Returns:
-        AgentResult with success status, summary, and steps taken
+        AgentResult with success status, summary, steps taken, and usage
     """
     system_prompt = build_system_prompt(scenario, browser.viewport.width, browser.viewport.height)
-    conversation: list[ConversationMessage] = []
-    screenshot_counts: Counter[str] = Counter()
-    screenshot_warnings: Counter[str] = Counter()
-    start_time = time.monotonic()
+
+    if resume:
+        conversation = resume.conversation
+        screenshot_counts = resume.screenshot_counts
+        screenshot_warnings = resume.screenshot_warnings
+        start_time = time.monotonic() - resume.elapsed_seconds
+        step = resume.step
+        total_usage = resume.usage
+
+        # Inject resume note into conversation
+        conversation.append(ConversationMessage(
+            role=MessageRole.USER,
+            content=(
+                "Session resumed. The browser has been restarted and navigated to the last known URL. "
+                "A fresh screenshot will follow. Continue from where you left off."
+            ),
+        ))
+        conversation.append(ConversationMessage(
+            role=MessageRole.ASSISTANT,
+            content='{"observation": "Session resumed successfully.", "reasoning": "Continuing from the resumed state.", "next_step": "Taking a fresh look at the current page", "action": {"action": "wait", "ms": 0}}',
+        ))
+    else:
+        conversation = []
+        screenshot_counts = Counter()
+        screenshot_warnings = Counter()
+        start_time = time.monotonic()
+        step = 0
+        total_usage = UsageStats()
 
     if screenshots_dir is not None:
         screenshots_dir.mkdir(parents=True, exist_ok=True)
         logger.info("Saving screenshots to %s", screenshots_dir)
 
-    step = 0
     while True:
         step += 1
 
         if max_steps > 0 and step > max_steps:
-            return AgentResult(success=False, summary=f"Max steps ({max_steps}) exceeded", steps_taken=step - 1)
+            return AgentResult(success=False, summary=f"Max steps ({max_steps}) exceeded", steps_taken=step - 1, usage=total_usage)
 
         elapsed = time.monotonic() - start_time
         if elapsed > _TIMEOUT_SECONDS:
             logger.warning("Timeout after %.0f seconds", elapsed)
-            return AgentResult(success=False, summary=f"Timeout after {int(elapsed)}s", steps_taken=step - 1)
+            return AgentResult(success=False, summary=f"Timeout after {int(elapsed)}s", steps_taken=step - 1, usage=total_usage)
 
         # Take screenshot
         screenshot_b64 = await browser.screenshot_base64()
@@ -163,14 +194,17 @@ async def run_agent(
         screenshot_counts[screenshot_hash] += 1
         repeat_count = screenshot_counts[screenshot_hash]
 
+        console_output.step_start(step)
+
         stuck_hint = ""
         if repeat_count >= _STUCK_SCREENSHOT_LIMIT:
             screenshot_warnings[screenshot_hash] += 1
             warnings_given = screenshot_warnings[screenshot_hash]
             logger.warning("Same screenshot seen %d times, warned %d/3", repeat_count, warnings_given)
+            console_output.step_warning(f"Same screen seen {repeat_count} times — warning {warnings_given}/3")
             if warnings_given > 3:
                 logger.error("Agent ignored 3 stuck warnings for this screen — force stopping")
-                return AgentResult(success=False, summary="Force stopped: stuck on the same screen", steps_taken=step)
+                return AgentResult(success=False, summary="Force stopped: stuck on the same screen", steps_taken=step, usage=total_usage)
             stuck_hint = (
                 f"\n\nWARNING ({warnings_given}/3): This exact screen has appeared {repeat_count} times already. "
                 "You are stuck. Try a COMPLETELY different approach, or use the fail action if you cannot proceed. "
@@ -190,15 +224,20 @@ async def run_agent(
 
         # Call LLM
         logger.info("%s — calling LLM...", step_label)
-        response = await llm.call_llm(system_prompt, conversation, AgentResponse)
+        response, step_usage = await llm.call_llm(system_prompt, conversation, AgentResponse)
+        total_usage += step_usage
+        console_output.step_usage(step_usage)
 
         if not isinstance(response, AgentResponse):
             logger.error("Unexpected response type: %s", type(response))
-            return AgentResult(success=False, summary=f"Unexpected LLM response: {response}", steps_taken=step)
+            return AgentResult(success=False, summary=f"Unexpected LLM response: {response}", steps_taken=step, usage=total_usage)
 
         logger.info("  observation: %s", response.observation[:100])
         logger.info("  reasoning: %s", response.reasoning[:100])
+        logger.info("  next_step: %s", response.next_step)
         logger.info("  action: %s", response.action)
+
+        console_output.step_action(response.next_step, str(response.action))
 
         # Store assistant response as plain text to save tokens
         conversation.append(ConversationMessage(
@@ -222,11 +261,31 @@ async def run_agent(
         # Check for terminal actions
         if isinstance(response.action, DoneAction):
             logger.info("Scenario completed: %s", response.action.summary)
-            return AgentResult(success=True, summary=response.action.summary, steps_taken=step)
+            if on_step_done:
+                on_step_done(ResumeState(
+                    step=step, elapsed_seconds=time.monotonic() - start_time,
+                    screenshot_counts=screenshot_counts, screenshot_warnings=screenshot_warnings,
+                    conversation=conversation, last_url=current_url, usage=total_usage,
+                ))
+            return AgentResult(success=True, summary=response.action.summary, steps_taken=step, usage=total_usage)
 
         if isinstance(response.action, FailAction):
             logger.warning("Scenario failed: %s", response.action.reason)
-            return AgentResult(success=False, summary=response.action.reason, steps_taken=step)
+            if on_step_done:
+                on_step_done(ResumeState(
+                    step=step, elapsed_seconds=time.monotonic() - start_time,
+                    screenshot_counts=screenshot_counts, screenshot_warnings=screenshot_warnings,
+                    conversation=conversation, last_url=current_url, usage=total_usage,
+                ))
+            return AgentResult(success=False, summary=response.action.reason, steps_taken=step, usage=total_usage)
 
         # Execute the action
         await _execute_action(browser, response)
+
+        # Notify callback after action execution
+        if on_step_done:
+            on_step_done(ResumeState(
+                step=step, elapsed_seconds=time.monotonic() - start_time,
+                screenshot_counts=screenshot_counts, screenshot_warnings=screenshot_warnings,
+                conversation=conversation, last_url=await browser.current_url(), usage=total_usage,
+            ))

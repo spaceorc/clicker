@@ -56,4 +56,5 @@ Screenshots have a red coordinate grid overlay with lines every 100 pixels and l
 For each step, provide:
 - **observation**: Describe what you see on the current screenshot
 - **reasoning**: Explain why you chose the next action
+- **next_step**: Short human-readable description of what you are about to do (e.g. "Clicking the Submit button", "Scrolling down to find the login form")
 - **action**: The action to execute"""

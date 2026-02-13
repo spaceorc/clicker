@@ -87,4 +87,5 @@ class AgentResponse(BaseModel):
 
     observation: str = Field(description="What you see on the current screenshot")
     reasoning: str = Field(description="Why you chose this action")
+    next_step: str = Field(description="Short human-readable description of what you are about to do, e.g. 'Clicking the Submit button'")
     action: Action
