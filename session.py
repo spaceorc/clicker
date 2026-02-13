@@ -37,6 +37,7 @@ class SessionState:
     conversation: list[dict[str, Any]]
     usage: dict[str, int] = field(default_factory=dict)
     fallback_model: str | None = None
+    use_smart_model: bool = False  # If true, permanently use fallback (smart) model
 
 
 @dataclass
@@ -50,6 +51,7 @@ class ResumeState:
     conversation: list[ConversationMessage]
     last_url: str
     usage: UsageStats
+    use_smart_model: bool = False
 
 
 def serialize_conversation(conversation: list[ConversationMessage]) -> list[dict[str, Any]]:
@@ -86,6 +88,7 @@ def save_session(session_dir: Path, state: SessionState) -> None:
         "scenario": state.scenario,
         "model": state.model,
         "fallback_model": state.fallback_model,
+        "use_smart_model": state.use_smart_model,
         "viewport": state.viewport,
         "headless": state.headless,
         "pause": state.pause,
@@ -142,6 +145,7 @@ def load_session(session_dir: Path) -> SessionState:
         conversation=data["conversation"],
         usage=data.get("usage", {}),
         fallback_model=data.get("fallback_model"),
+        use_smart_model=data.get("use_smart_model", False),
     )
 
 
@@ -191,4 +195,5 @@ def build_resume_state(session: SessionState) -> ResumeState:
         conversation=conversation,
         last_url=session.last_url,
         usage=usage,
+        use_smart_model=session.use_smart_model,
     )

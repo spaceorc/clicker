@@ -94,6 +94,7 @@ def _make_step_callback(
             scenario=scenario,
             model=model,
             fallback_model=fallback_model,
+            use_smart_model=state.use_smart_model,
             viewport={"width": viewport.width, "height": viewport.height},
             headless=headless,
             pause=pause,

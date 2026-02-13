@@ -92,4 +92,8 @@ class AgentResponse(BaseModel):
         default=None,
         description="Your best estimate of how many more steps are needed to complete the scenario (None if you can't estimate)"
     )
+    request_smart_model: bool = Field(
+        default=False,
+        description="Set to true if you need the smarter/more expensive model for this critical task (e.g. answering test questions, complex reasoning). Once enabled, will remain active for the rest of the session."
+    )
     action: Action

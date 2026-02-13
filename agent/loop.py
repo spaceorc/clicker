@@ -180,11 +180,20 @@ async def run_agent(
     using_fallback = False
     primary_llm = llm  # Save reference to primary model
 
+    # If resuming with smart mode enabled, start with fallback
+    if resume and resume.use_smart_model and fallback_llm is not None:
+        logger.info("Session has smart mode enabled, using fallback model: %s", fallback_llm.model)
+        llm = fallback_llm
+        using_fallback = True
+
     # Track usage separately by model
     usage_by_model: dict[str, UsageStats] = {}
 
     # Track last screenshot hash to detect when we've unstuck
     last_screenshot_hash: str | None = None
+
+    # Track if smart mode was permanently requested
+    smart_mode_requested = resume.use_smart_model if resume else False
 
     try:
         while True:
@@ -210,8 +219,8 @@ async def run_agent(
             screenshot_counts[screenshot_hash] += 1
             repeat_count = screenshot_counts[screenshot_hash]
 
-            # If using fallback and screenshot changed, switch back to primary
-            if using_fallback and last_screenshot_hash and screenshot_hash != last_screenshot_hash:
+            # If using fallback (due to stuck, not smart mode) and screenshot changed, switch back to primary
+            if using_fallback and not smart_mode_requested and last_screenshot_hash and screenshot_hash != last_screenshot_hash:
                 logger.info("Screenshot changed, switching back to primary model: %s", primary_llm.model)
                 console_output.model_switch(llm.model, primary_llm.model, "Successfully unstuck")
                 llm = primary_llm
@@ -328,6 +337,14 @@ async def run_agent(
 
             console_output.step_action(response.next_step, str(response.action), response.reasoning, response.estimated_steps_remaining)
 
+            # Check if model requested permanent upgrade to smart model
+            if response.request_smart_model and fallback_llm is not None and not smart_mode_requested:
+                logger.info("Model requested smart mode, switching permanently to: %s", fallback_llm.model)
+                console_output.model_switch(llm.model, fallback_llm.model, "Critical task - model requested upgrade")
+                llm = fallback_llm
+                using_fallback = True
+                smart_mode_requested = True
+
             # Store assistant response as plain text to save tokens
             conversation.append(ConversationMessage(
                 role=MessageRole.ASSISTANT,
@@ -355,6 +372,7 @@ async def run_agent(
                         step=step, elapsed_seconds=time.monotonic() - start_time,
                         screenshot_counts=screenshot_counts, screenshot_warnings=screenshot_warnings,
                         conversation=conversation, last_url=current_url, usage=total_usage,
+                        use_smart_model=smart_mode_requested,
                     ))
                 return AgentResult(success=True, summary=response.action.summary, steps_taken=step, usage=total_usage, model=llm.model, usage_by_model=usage_by_model)
 
@@ -365,6 +383,7 @@ async def run_agent(
                         step=step, elapsed_seconds=time.monotonic() - start_time,
                         screenshot_counts=screenshot_counts, screenshot_warnings=screenshot_warnings,
                         conversation=conversation, last_url=current_url, usage=total_usage,
+                        use_smart_model=smart_mode_requested,
                     ))
                 return AgentResult(success=False, summary=response.action.reason, steps_taken=step, usage=total_usage, model=llm.model, usage_by_model=usage_by_model)
 
@@ -377,7 +396,8 @@ async def run_agent(
                     step=step, elapsed_seconds=time.monotonic() - start_time,
                     screenshot_counts=screenshot_counts, screenshot_warnings=screenshot_warnings,
                     conversation=conversation, last_url=await browser.current_url(), usage=total_usage,
-            ))
+                    use_smart_model=smart_mode_requested,
+                ))
     except (KeyboardInterrupt, asyncio.CancelledError):
         logger.info("Agent interrupted by user")
         # Save final state before raising
@@ -387,5 +407,6 @@ async def run_agent(
                 step=step, elapsed_seconds=time.monotonic() - start_time,
                 screenshot_counts=screenshot_counts, screenshot_warnings=screenshot_warnings,
                 conversation=conversation, last_url=current_url, usage=total_usage,
+                use_smart_model=smart_mode_requested,
             ))
         raise

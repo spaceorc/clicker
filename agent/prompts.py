@@ -58,4 +58,10 @@ For each step, provide:
 - **reasoning**: Explain why you chose the next action
 - **next_step**: Short human-readable description of what you are about to do (e.g. "Clicking the Submit button", "Scrolling down to find the login form")
 - **estimated_steps_remaining**: Your best estimate of how many more steps you think are needed to complete the scenario. This helps track progress. If you can't estimate, return null.
+- **request_smart_model**: Set to true if you need the smarter/more expensive model for critical tasks. Use this when:
+  - You're about to answer test questions or solve complex problems (e.g., math, logic, comprehension questions)
+  - You've failed multiple times on the same task and need better reasoning
+  - The task requires deep understanding (e.g., understanding quiz content, analyzing complex forms)
+  - You see test progress indicators (e.g., "Question 5 of 20", "75% complete") and need accuracy
+  Once enabled, the smart model will remain active for the rest of the session.
 - **action**: The action to execute"""
