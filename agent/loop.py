@@ -232,15 +232,49 @@ async def run_agent(
                 if warnings_given == 1 and fallback_llm is not None and not using_fallback:
                     logger.info("Switching to fallback model: %s", fallback_llm.model)
                     console_output.model_switch(llm.model, fallback_llm.model, "Agent appears stuck")
+
+                    # Compress old conversation history using LLM summary before switching
+                    max_recent_messages = 150
+                    if len(conversation) > max_recent_messages:
+                        logger.info("Compressing conversation history using LLM summary")
+
+                        # Use primary (cheap) model to create summary
+                        old_messages = conversation[:-max_recent_messages]
+                        summary_prompt = (
+                            "Summarize the following agent conversation history. Focus on:\n"
+                            "- What actions were attempted (especially click coordinates)\n"
+                            "- What URLs/pages were visited\n"
+                            "- What worked and what didn't\n"
+                            "- Any patterns in failures\n"
+                            "Keep it concise (200-300 words max)."
+                        )
+
+                        # Build summary request
+                        summary_conversation = [
+                            ConversationMessage(role=MessageRole.USER, content=summary_prompt),
+                        ]
+                        for msg in old_messages:
+                            if isinstance(msg.content, str):
+                                summary_conversation.append(msg)
+                            # Skip image messages in summary
+
+                        try:
+                            summary_response, _ = await llm.call_llm("You are a helpful assistant.", summary_conversation, str)
+                            summary_text = summary_response if isinstance(summary_response, str) else "Summary generation failed."
+
+                            # Replace old messages with summary
+                            summary_message = ConversationMessage(
+                                role=MessageRole.USER,
+                                content=f"[SUMMARY OF PREVIOUS ACTIONS]\n{summary_text}\n[END OF SUMMARY - RECENT ACTIONS FOLLOW]"
+                            )
+                            conversation = [summary_message] + conversation[-max_recent_messages:]
+                            logger.info("Compressed %d old messages into summary", len(old_messages))
+                        except Exception as e:
+                            logger.warning("Failed to generate summary, keeping recent messages only: %s", e)
+                            conversation = conversation[-max_recent_messages:]
+
                     llm = fallback_llm
                     using_fallback = True
-
-                    # Compact conversation history for fallback - keep last ~100-200 messages
-                    # This preserves recent context (what was tried) while reducing token cost
-                    max_messages = 150
-                    if len(conversation) > max_messages:
-                        logger.info("Compacting conversation history for fallback model (keeping last %d messages)", max_messages)
-                        conversation = conversation[-max_messages:]
 
                     # Add a hint to try the same approach more carefully
                     stuck_hint += (
