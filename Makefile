@@ -2,7 +2,7 @@
 
 URL ?=
 SCENARIO ?=
-MODEL ?= anthropic_vertex/claude-sonnet-4-5@20250929
+MODEL ?= google_vertex/gemini-2.5-flash
 SESSION ?=
 
 install:

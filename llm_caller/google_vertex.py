@@ -89,6 +89,8 @@ def _process_schema_node(node: Any) -> Any:
 
     - Convert type arrays to anyOf format
     - Remove additionalProperties (not supported by Gemini)
+    - Convert oneOf to anyOf (Gemini doesn't support oneOf)
+    - Remove discriminator (not supported by Gemini)
 
     Args:
         node: Schema node to process
@@ -109,6 +111,15 @@ def _process_schema_node(node: Any) -> Any:
 
         # Remove additionalProperties (not supported)
         if key == "additionalProperties":
+            continue
+
+        # Remove discriminator (not supported by Gemini)
+        if key == "discriminator":
+            continue
+
+        # Convert oneOf to anyOf (Gemini doesn't support oneOf)
+        if key == "oneOf" and isinstance(value, list):
+            result["anyOf"] = [_process_schema_node(item) if isinstance(item, dict) else item for item in value]
             continue
 
         # Recursively process nested structures
