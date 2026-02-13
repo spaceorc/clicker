@@ -27,7 +27,7 @@ def step_action(next_step: str, action_repr: str, reasoning: str, estimated_step
     """Print agent's reasoning, next_step description and the action."""
     console.print(f"  [bright_cyan]{reasoning}[/bright_cyan]")
     if estimated_steps_remaining is not None:
-        console.print(f"  [dim magenta]~{estimated_steps_remaining} steps remaining[/dim magenta]")
+        console.print(f"  [bright_magenta]~{estimated_steps_remaining} steps remaining[/bright_magenta]")
     console.print(f"  [bold green]{next_step}[/bold green]")
     console.print(f"  [white]{action_repr}[/white]")
 
