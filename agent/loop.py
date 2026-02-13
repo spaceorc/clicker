@@ -237,7 +237,7 @@ async def run_agent(
         logger.info("  next_step: %s", response.next_step)
         logger.info("  action: %s", response.action)
 
-        console_output.step_action(response.next_step, str(response.action))
+        console_output.step_action(response.next_step, str(response.action), response.reasoning)
 
         # Store assistant response as plain text to save tokens
         conversation.append(ConversationMessage(

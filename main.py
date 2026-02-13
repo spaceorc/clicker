@@ -75,6 +75,7 @@ def _make_step_callback(
     model: str,
     viewport: ViewportSize,
     headless: bool,
+    pause: bool,
     max_steps: int,
 ):
     """Create on_step_done callback that saves session state."""
@@ -88,6 +89,7 @@ def _make_step_callback(
             model=model,
             viewport={"width": viewport.width, "height": viewport.height},
             headless=headless,
+            pause=pause,
             max_steps=max_steps,
             step=state.step,
             elapsed_seconds=state.elapsed_seconds,
@@ -142,6 +144,7 @@ async def _run(args: argparse.Namespace) -> AgentResult:
             model=model_spec,
             viewport=viewport,
             headless=headless,
+            pause=args.pause,
             max_steps=args.max_steps,
         )
 
@@ -220,6 +223,7 @@ def main() -> None:
         args.scenario = session.scenario
         args.model = args.model or session.model
         args.max_steps = args.max_steps or session.max_steps
+        args.pause = args.pause or session.pause
         args.resume_state = build_resume_state(session)
         args.run_dir = session_dir
     else:

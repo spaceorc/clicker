@@ -28,6 +28,7 @@ class SessionState:
     model: str
     viewport: dict[str, int]
     headless: bool
+    pause: bool
     max_steps: int
     step: int
     elapsed_seconds: float
@@ -85,6 +86,7 @@ def save_session(session_dir: Path, state: SessionState) -> None:
         "model": state.model,
         "viewport": state.viewport,
         "headless": state.headless,
+        "pause": state.pause,
         "max_steps": state.max_steps,
         "step": state.step,
         "elapsed_seconds": state.elapsed_seconds,
@@ -129,6 +131,7 @@ def load_session(session_dir: Path) -> SessionState:
         model=data["model"],
         viewport=data["viewport"],
         headless=data["headless"],
+        pause=data.get("pause", False),
         max_steps=data["max_steps"],
         step=data["step"],
         elapsed_seconds=data["elapsed_seconds"],
