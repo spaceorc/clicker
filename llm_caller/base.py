@@ -330,14 +330,8 @@ class LlmCaller(ABC):
         Returns:
             Error response or re-raises exception
         """
-        if is_pydantic_schema:
-            try:
-                return json_schema.model_validate(  # type: ignore[union-attr]
-                    {"text": f"Error: {error}", "continue_conversation": False}
-                )
-            except Exception:
-                raise
-        elif is_dict_schema:
+        if is_pydantic_schema or is_dict_schema:
+            # Can't create generic error response for Pydantic/dict schemas
             raise
         else:
             return f"Error: {error}"
