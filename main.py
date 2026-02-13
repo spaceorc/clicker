@@ -148,7 +148,11 @@ async def _run(args: argparse.Namespace) -> AgentResult:
 
         if args.pause:
             print("Browser is open. Log in manually, then press Enter to start the agent...")
-            await asyncio.get_event_loop().run_in_executor(None, input)
+            try:
+                await asyncio.get_event_loop().run_in_executor(None, input)
+            except KeyboardInterrupt:
+                console_output.console.print("\n[yellow]Cancelled by user (Ctrl+C)[/yellow]")
+                raise SystemExit(130)
 
         on_step_done = _make_step_callback(
             session_dir=args.run_dir,
