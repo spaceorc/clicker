@@ -228,7 +228,7 @@ async def run_agent(
 
             last_screenshot_hash = screenshot_hash
 
-            console_output.step_start(step)
+            console_output.step_start(step, llm.model)
 
             stuck_hint = ""
             if repeat_count >= _STUCK_SCREENSHOT_LIMIT:

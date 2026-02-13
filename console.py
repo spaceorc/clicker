@@ -18,9 +18,10 @@ def _format_cost(cost: float | None, bright: bool = False) -> str:
     return f" (~${cost:.2f})"
 
 
-def step_start(step: int) -> None:
-    """Print step header."""
-    console.print(f"\n[bold white]Step {step}[/bold white]")
+def step_start(step: int, model: str = "") -> None:
+    """Print step header with model name."""
+    model_str = f" [dim]({model})[/dim]" if model else ""
+    console.print(f"\n[bold white]Step {step}{model_str}[/bold white]")
 
 
 def step_action(next_step: str, action_repr: str, reasoning: str, estimated_steps_remaining: int | None = None) -> None:
