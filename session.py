@@ -21,7 +21,7 @@ class SessionState:
     """Full session state persisted to session.json."""
 
     version: int
-    status: Literal["in_progress", "done", "failed"]
+    status: Literal["in_progress", "done", "failed", "interrupted"]
     url: str
     last_url: str
     scenario: str
@@ -143,13 +143,13 @@ def load_session(session_dir: Path) -> SessionState:
 
 
 def find_latest_session() -> Path:
-    """Find the most recent in-progress session directory.
+    """Find the most recent resumable session directory (in_progress or interrupted).
 
     Returns:
         Path to the session directory
 
     Raises:
-        FileNotFoundError: If no sessions directory or no in-progress sessions
+        FileNotFoundError: If no sessions directory or no resumable sessions
     """
     if not _SESSIONS_DIR.exists():
         raise FileNotFoundError("No sessions directory found")
@@ -162,12 +162,12 @@ def find_latest_session() -> Path:
         if session_file.exists():
             try:
                 data = json.loads(session_file.read_text(encoding="utf-8"))
-                if data.get("status") == "in_progress":
+                if data.get("status") in ("in_progress", "interrupted"):
                     return session_dir
             except (json.JSONDecodeError, KeyError):
                 continue
 
-    raise FileNotFoundError("No in-progress sessions found")
+    raise FileNotFoundError("No resumable sessions found (looking for in_progress or interrupted)")
 
 
 def build_resume_state(session: SessionState) -> ResumeState:

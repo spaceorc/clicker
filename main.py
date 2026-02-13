@@ -218,7 +218,7 @@ def main() -> None:
         assert session is not None
         assert session_dir is not None
 
-        if session.status != "in_progress":
+        if session.status not in ("in_progress", "interrupted"):
             print(f"Error: Session is already '{session.status}', cannot resume", file=sys.stderr)
             sys.exit(1)
 
