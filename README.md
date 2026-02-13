@@ -1,5 +1,7 @@
 # Clicker
 
+[![Tests](https://github.com/spaceorc/clicker/actions/workflows/test.yml/badge.svg)](https://github.com/spaceorc/clicker/actions/workflows/test.yml)
+
 LLM-driven browser automation agent. Takes a URL and a goal, then autonomously navigates the page — clicking buttons, filling forms, scrolling, dragging elements — until the goal is achieved.
 
 The agent works by repeatedly taking screenshots, sending them to a vision-capable LLM, and executing whatever action the model decides on. It features intelligent model switching, starting with cheap models (Haiku/Gemini) and automatically upgrading to expensive models (Sonnet) when needed.

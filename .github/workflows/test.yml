@@ -1,0 +1,81 @@
+name: Tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: "latest"
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Run unit tests
+      run: |
+        uv run pytest -m "not integration" -v
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    # Only run integration tests on master branch pushes or manual triggers
+    # This saves money by not running expensive LLM API calls on every PR
+    if: github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: "latest"
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Install Playwright browsers
+      run: |
+        uv run playwright install chromium
+        uv run playwright install-deps chromium
+
+    - name: Set environment variables
+      run: |
+        echo "VERTEX_CREDENTIALS=${{ secrets.VERTEX_CREDENTIALS }}" >> $GITHUB_ENV
+        echo "VERTEX_PROJECT_NAME=${{ secrets.VERTEX_PROJECT_NAME }}" >> $GITHUB_ENV
+        echo "VERTEX_LOCATION=europe-west1" >> $GITHUB_ENV
+
+    - name: Run integration tests
+      run: |
+        uv run pytest -m integration -v --tb=short
+
+    - name: Upload test screenshots on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-screenshots
+        path: /tmp/pytest-of-*/pytest-*/*/screenshots/
+        retention-days: 7
