@@ -2,7 +2,7 @@
 
 URL ?=
 SCENARIO ?=
-MODEL ?= google_vertex/gemini-2.5-flash-lite
+MODEL ?= anthropic_vertex/claude-haiku-4-5@20251001
 SESSION ?=
 
 install:
