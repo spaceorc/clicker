@@ -13,16 +13,16 @@ run:
 	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)"
 
 run-visible:
-	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless -v
+	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless
 
 run-pause:
-	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless --pause -v
+	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless --pause
 
 resume:
-	uv run python main.py --resume "$(SESSION)" --no-headless -v
+	uv run python main.py --resume "$(SESSION)" --no-headless
 
 resume-last:
-	uv run python main.py --resume-last --no-headless -v
+	uv run python main.py --resume-last --no-headless
 
 help:
 	uv run python main.py --help
