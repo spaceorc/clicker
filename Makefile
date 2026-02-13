@@ -33,10 +33,10 @@ resume-last:
 	uv run python main.py --resume-last --no-headless $(VERBOSE_FLAG)
 
 test:
-	uv run pytest -m "not integration" -v
+	uv run pytest -m "not integration" -v -n auto
 
 test-integration:
-	uv run pytest -m integration -v
+	uv run pytest -m integration -v -n auto
 
 help:
 	uv run python main.py --help

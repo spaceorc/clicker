@@ -2,10 +2,8 @@ name: Tests
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
-  workflow_dispatch:  # Allow manual trigger
+    branches: [ master ]  # Only on commits to master
+  workflow_dispatch:      # Allow manual trigger
 
 jobs:
   unit-tests:
@@ -31,13 +29,13 @@ jobs:
 
     - name: Run unit tests
       run: |
-        uv run pytest -m "not integration" -v
+        uv run pytest -m "not integration" -v -n auto
 
   integration-tests:
     name: Integration Tests
     runs-on: ubuntu-latest
-    # Only run integration tests on master branch pushes or manual triggers
-    # This saves money by not running expensive LLM API calls on every PR
+    # Integration tests run on master pushes or manual triggers
+    # Cost: ~$0.05 per run
     if: github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
 
     steps:
@@ -70,7 +68,7 @@ jobs:
 
     - name: Run integration tests
       run: |
-        uv run pytest -m integration -v --tb=short
+        uv run pytest -m integration -v --tb=short -n auto
 
     - name: Upload test screenshots on failure
       if: failure()

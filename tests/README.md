@@ -6,18 +6,23 @@
 # Install test dependencies
 uv sync --dev
 
-# Run unit tests only (fast, no API calls)
+# Run unit tests only (fast, no API calls, parallel execution)
 make test
 
-# Run integration tests (slow, makes real LLM API calls)
+# Run integration tests (slow, makes real LLM API calls, parallel execution)
 make test-integration
 
-# Run all tests
-uv run pytest -v
+# Run all tests in parallel
+uv run pytest -v -n auto
 
 # Run specific test
-uv run pytest tests/test_integration.py::test_navigate_to_wikipedia -v
+uv run pytest tests/test_integration.py::test_wikipedia_search -v
+
+# Run tests without parallelization (for debugging)
+uv run pytest -v
 ```
+
+**Parallel execution:** Tests use `pytest-xdist` with `-n auto` flag for automatic CPU core detection and parallel execution. This speeds up test suites significantly.
 
 ## Test types
 

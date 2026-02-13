@@ -58,9 +58,9 @@ Only needed if you want to run tests with OpenAI models.
 ## Verifying Setup
 
 After adding secrets, the GitHub Actions workflow will:
-- Run unit tests on every push/PR (free, fast)
-- Run integration tests only on master branch pushes (costs ~$0.05 per run)
-- Can manually trigger integration tests from the Actions tab
+- Run unit tests on every push to master (free, fast)
+- Run integration tests on every push to master (costs ~$0.05 per run)
+- Can manually trigger both test suites from the Actions tab
 
 ## Cost Considerations
 
@@ -68,8 +68,6 @@ After adding secrets, the GitHub Actions workflow will:
 - **Integration tests:** ~$0.05 per run (3 tests × ~$0.02 each)
 - **Typical monthly cost:** Variable, depends on commit frequency
 
-To reduce costs, integration tests only run:
-- On pushes to master branch (when actual code changes)
+Integration tests run:
+- On every push to master branch
 - When manually triggered (workflow_dispatch)
-
-PRs only run unit tests by default.
