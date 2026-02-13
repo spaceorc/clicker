@@ -70,6 +70,12 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Resume the most recent in-progress session",
     )
+    parser.add_argument(
+        "--user-data-dir",
+        metavar="DIR",
+        default=None,
+        help="Directory to store browser profile data (cookies, sessions, etc.). Using this preserves login state between runs.",
+    )
     return parser.parse_args()
 
 
@@ -83,6 +89,7 @@ def _make_step_callback(
     headless: bool,
     pause: bool,
     max_steps: int,
+    user_data_dir: str | None,
 ):
     """Create on_step_done callback that saves session state."""
     def on_step_done(state: ResumeState) -> None:
@@ -95,6 +102,7 @@ def _make_step_callback(
             model=model,
             fallback_model=fallback_model,
             use_smart_model=state.use_smart_model,
+            user_data_dir=user_data_dir,
             viewport={"width": viewport.width, "height": viewport.height},
             headless=headless,
             pause=pause,
@@ -128,7 +136,7 @@ async def _run(args: argparse.Namespace) -> AgentResult:
 
     headless = not args.no_headless
     viewport = ViewportSize()
-    browser = BrowserController(viewport=viewport, headless=headless)
+    browser = BrowserController(viewport=viewport, headless=headless, user_data_dir=args.user_data_dir)
 
     resume_state: ResumeState | None = None
 
@@ -165,6 +173,7 @@ async def _run(args: argparse.Namespace) -> AgentResult:
             headless=headless,
             pause=args.pause,
             max_steps=args.max_steps,
+            user_data_dir=args.user_data_dir,
         )
 
         result = await run_agent(
@@ -249,6 +258,7 @@ def main() -> None:
         args.fallback_model = args.fallback_model or session.fallback_model or "anthropic_vertex/claude-sonnet-4-5@20250929"
         args.max_steps = args.max_steps or session.max_steps
         args.pause = args.pause or session.pause
+        args.user_data_dir = args.user_data_dir or session.user_data_dir  # Use saved browser profile
         args.resume_state = build_resume_state(session)
         args.run_dir = session_dir
     else:

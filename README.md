@@ -53,6 +53,12 @@ uv run python main.py "https://example.com" "Click the link" \
   --model anthropic_vertex/claude-haiku-4-5@20251001 \
   --fallback-model anthropic_vertex/claude-sonnet-4-5@20250929
 
+# Persistent sessions (save cookies between runs)
+make run-pause URL="https://myapp.com" SCENARIO="Login and navigate" USER_DATA_DIR="./my-profile"
+# After manual login, cookies are saved to ./my-profile/
+# Future runs use the same profile (no re-login needed):
+make run URL="https://myapp.com" SCENARIO="Check dashboard" USER_DATA_DIR="./my-profile"
+
 # Resume a session (after crash or Ctrl+C)
 make resume-last                     # Resume most recent in-progress session
 make resume SESSION="sessions/2026-02-13_14-30-00"  # Resume specific session
@@ -67,9 +73,12 @@ make resume SESSION="sessions/2026-02-13_14-30-00"  # Resume specific session
 | `--no-headless` | Show the browser window |
 | `--pause` | Pause after page load for manual login, press Enter to start |
 | `--max-steps N` | Limit agent steps (default: 0 = unlimited) |
+| `--user-data-dir DIR` | Browser profile directory (preserves cookies/sessions between runs) |
 | `--resume SESSION_DIR` | Resume from a specific session directory |
 | `--resume-last` | Resume the most recent in-progress session |
 | `-v` | Verbose (DEBUG) console logging |
+
+**Note:** See [docs/PERSISTENT_SESSION.md](docs/PERSISTENT_SESSION.md) for detailed guide on using persistent browser profiles.
 
 ### Supported LLM providers
 

@@ -6,6 +6,7 @@ MODEL ?= anthropic_vertex/claude-haiku-4-5@20251001
 SESSION ?=
 DEBUG ?= 0
 VERBOSE ?= 0
+USER_DATA_DIR ?=
 
 ifneq ($(filter 1,$(DEBUG) $(VERBOSE)),)
     VERBOSE_FLAG = -v
@@ -13,18 +14,24 @@ else
     VERBOSE_FLAG =
 endif
 
+ifneq ($(USER_DATA_DIR),)
+    USER_DATA_FLAG = --user-data-dir "$(USER_DATA_DIR)"
+else
+    USER_DATA_FLAG =
+endif
+
 install:
 	uv sync
 	uv run playwright install chromium
 
 run:
-	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)" $(VERBOSE_FLAG)
+	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)" $(USER_DATA_FLAG) $(VERBOSE_FLAG)
 
 run-visible:
-	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless $(VERBOSE_FLAG)
+	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless $(USER_DATA_FLAG) $(VERBOSE_FLAG)
 
 run-pause:
-	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless --pause $(VERBOSE_FLAG)
+	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless --pause $(USER_DATA_FLAG) $(VERBOSE_FLAG)
 
 resume:
 	uv run python main.py --resume "$(SESSION)" --no-headless $(VERBOSE_FLAG)

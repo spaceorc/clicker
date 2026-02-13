@@ -54,11 +54,12 @@ class ViewportSize:
 class BrowserController:
     """Playwright wrapper for browser automation."""
 
-    __slots__ = ("_browser", "_context", "_headless", "_page", "_playwright", "_viewport")
+    __slots__ = ("_browser", "_context", "_headless", "_page", "_playwright", "_viewport", "_user_data_dir")
 
-    def __init__(self, viewport: ViewportSize | None = None, headless: bool = True) -> None:
+    def __init__(self, viewport: ViewportSize | None = None, headless: bool = True, user_data_dir: str | None = None) -> None:
         self._viewport = viewport or ViewportSize()
         self._headless = headless
+        self._user_data_dir = user_data_dir
         self._playwright = None
         self._browser: Browser | None = None
         self._context: BrowserContext | None = None
@@ -78,15 +79,32 @@ class BrowserController:
         """Launch browser and create a page."""
         pw = await async_playwright().start()
         self._playwright = pw
-        self._browser = await pw.chromium.launch(headless=self._headless)
-        self._context = await self._browser.new_context(
-            viewport={"width": self._viewport.width, "height": self._viewport.height},
-        )
-        self._page = await self._context.new_page()
-        logger.info("Browser started (headless=%s, viewport=%dx%d)", self._headless, self._viewport.width, self._viewport.height)
+
+        if self._user_data_dir:
+            # Use persistent context to save cookies and session data
+            logger.info("Using persistent context: %s", self._user_data_dir)
+            self._context = await pw.chromium.launch_persistent_context(
+                user_data_dir=self._user_data_dir,
+                headless=self._headless,
+                viewport={"width": self._viewport.width, "height": self._viewport.height},
+            )
+            self._page = self._context.pages[0] if self._context.pages else await self._context.new_page()
+            logger.info("Browser started with persistent context (headless=%s, viewport=%dx%d)",
+                       self._headless, self._viewport.width, self._viewport.height)
+        else:
+            # Standard mode - fresh session every time
+            self._browser = await pw.chromium.launch(headless=self._headless)
+            self._context = await self._browser.new_context(
+                viewport={"width": self._viewport.width, "height": self._viewport.height},
+            )
+            self._page = await self._context.new_page()
+            logger.info("Browser started (headless=%s, viewport=%dx%d)",
+                       self._headless, self._viewport.width, self._viewport.height)
 
     async def stop(self) -> None:
         """Close browser and cleanup."""
+        if self._context:
+            await self._context.close()
         if self._browser:
             await self._browser.close()
         if self._playwright:

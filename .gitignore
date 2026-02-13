@@ -5,3 +5,8 @@ __pycache__/
 logs/
 sessions/
 .idea/
+
+# Browser profiles (persistent contexts)
+browser-profile/
+profiles/
+*.profile/

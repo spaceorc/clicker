@@ -38,6 +38,7 @@ class SessionState:
     usage: dict[str, int] = field(default_factory=dict)
     fallback_model: str | None = None
     use_smart_model: bool = False  # If true, permanently use fallback (smart) model
+    user_data_dir: str | None = None  # Browser profile directory for persistent sessions
 
 
 @dataclass
@@ -89,6 +90,7 @@ def save_session(session_dir: Path, state: SessionState) -> None:
         "model": state.model,
         "fallback_model": state.fallback_model,
         "use_smart_model": state.use_smart_model,
+        "user_data_dir": state.user_data_dir,
         "viewport": state.viewport,
         "headless": state.headless,
         "pause": state.pause,
@@ -146,6 +148,7 @@ def load_session(session_dir: Path) -> SessionState:
         usage=data.get("usage", {}),
         fallback_model=data.get("fallback_model"),
         use_smart_model=data.get("use_smart_model", False),
+        user_data_dir=data.get("user_data_dir"),
     )
 
 
