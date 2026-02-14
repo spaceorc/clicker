@@ -9,17 +9,11 @@ class Clicker < Formula
   depends_on "python@3.13"
 
   def install
-    # Create virtualenv in libexec
-    virtualenv_create(libexec, "python3.13")
-
-    # Install the package and its dependencies
-    system libexec/"bin/pip", "install", "-e", buildpath
+    # Create virtualenv and install dependencies
+    virtualenv_install_with_resources
 
     # Install Playwright browsers
     system libexec/"bin/playwright", "install", "chromium"
-
-    # Create wrapper script
-    (bin/"clicker").write_env_script libexec/"bin/clicker", PATH: "#{libexec}/bin:$PATH"
   end
 
   test do
