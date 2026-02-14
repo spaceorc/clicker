@@ -25,16 +25,37 @@ The agent works by repeatedly taking screenshots, sending them to a vision-capab
 5. Action is executed in the browser
 6. Repeat until the LLM reports success or failure
 
-## Setup
+## Installation
 
-### Option 1: Install via Homebrew (recommended)
+### Via Homebrew (recommended)
 
 ```bash
-# Add tap and install
 brew tap spaceorc/clicker
 brew install --HEAD clicker
+```
 
-# Configure credentials
+That's it! Playwright browsers will be installed automatically on first run.
+
+### From source
+
+```bash
+# Clone repository
+git clone https://github.com/spaceorc/clicker.git
+cd clicker
+
+# Install dependencies (includes Playwright browsers)
+make install
+```
+
+## Configuration
+
+Clicker needs API credentials to work. There are several ways to configure them:
+
+### Option 1: Config file (recommended for Homebrew)
+
+Create `~/.config/clicker/config.env`:
+
+```bash
 mkdir -p ~/.config/clicker
 cat > ~/.config/clicker/config.env <<'EOF'
 # Google Vertex AI (for Anthropic via Vertex and Gemini)
@@ -44,23 +65,44 @@ VERTEX_LOCATION=europe-west1
 
 # OpenAI (optional)
 OPENAI_API_KEY=sk-...
+OPENAI_BASE_URL=https://api.openai.com/v1
 EOF
 
 chmod 600 ~/.config/clicker/config.env
-
-# Playwright browsers will be installed automatically on first run
 ```
 
-### Option 2: Install from source
+### Option 2: Home directory config
+
+Create `~/.clicker.env` with the same content as above.
+
+### Option 3: Project directory (recommended for source)
+
+Create `.env` in your working directory:
 
 ```bash
-# Install dependencies
-make install
-
-# Configure credentials
 cp .env.example .env
-# Edit .env with your API keys
+# Edit .env with your credentials
 ```
+
+### Option 4: Environment variables
+
+Export variables in your shell (`~/.zshrc` or `~/.bashrc`):
+
+```bash
+export VERTEX_CREDENTIALS="<base64-encoded-service-account-json>"
+export VERTEX_PROJECT_NAME="my-project"
+export VERTEX_LOCATION="europe-west1"
+
+# OpenAI (optional)
+export OPENAI_API_KEY="sk-..."
+export OPENAI_BASE_URL="https://api.openai.com/v1"
+```
+
+**Config priority:** Clicker searches in this order:
+1. `~/.config/clicker/config.env`
+2. `~/.clicker.env`
+3. `./.env` (current directory)
+4. Environment variables
 
 ## Usage
 
