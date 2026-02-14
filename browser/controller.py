@@ -4,7 +4,10 @@ import asyncio
 import base64
 import io
 import logging
+import subprocess
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 from playwright.async_api import Browser, BrowserContext, Page, async_playwright
@@ -75,8 +78,38 @@ class BrowserController:
             raise RuntimeError("Browser not started. Call start() first.")
         return self._page
 
+    async def _ensure_browsers_installed(self) -> None:
+        """Check if Playwright browsers are installed, install if needed."""
+        # Check if chromium browser is already installed
+        # Playwright stores browsers in ~/.cache/ms-playwright on Linux/Mac
+        playwright_cache = Path.home() / ".cache" / "ms-playwright"
+        chromium_installed = any(
+            (playwright_cache / d).exists()
+            for d in ["chromium-*", "webkit-*"]
+            if (playwright_cache).exists() and list(playwright_cache.glob(d))
+        )
+
+        if not chromium_installed:
+            logger.info("Installing Playwright browsers (first run)...")
+            print("📥 Installing Playwright browsers (first run, this may take a minute)...")
+            try:
+                result = subprocess.run(
+                    [sys.executable, "-m", "playwright", "install", "chromium"],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                logger.info("Playwright browsers installed successfully")
+                print("✅ Browsers installed successfully")
+            except subprocess.CalledProcessError as e:
+                logger.error("Failed to install Playwright browsers: %s", e.stderr)
+                raise RuntimeError(f"Failed to install Playwright browsers: {e.stderr}")
+
     async def start(self) -> None:
         """Launch browser and create a page."""
+        # Check if Chromium is installed, install if needed (first run)
+        await self._ensure_browsers_installed()
+
         pw = await async_playwright().start()
         self._playwright = pw
 

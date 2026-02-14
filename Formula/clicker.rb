@@ -19,11 +19,6 @@ class Clicker < Formula
       PATH:       "#{libexec}/bin:$PATH"
   end
 
-  def post_install
-    # Install Playwright browsers after package installation
-    system libexec/"bin/playwright", "install", "chromium"
-  end
-
   def caveats
     <<~EOS
       To get started, configure your API keys:
@@ -50,7 +45,7 @@ class Clicker < Formula
 
       See .env.example in the clicker repository for more configuration options.
 
-      Note: Playwright browsers (Chromium) are installed automatically.
+      Note: Playwright browsers (Chromium) will be installed automatically on first run.
     EOS
   end
 
