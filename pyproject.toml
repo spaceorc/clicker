@@ -16,6 +16,9 @@ dependencies = [
     "rich>=14.3.2",
 ]
 
+[project.scripts]
+clicker = "main:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0.0",
