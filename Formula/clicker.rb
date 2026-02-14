@@ -9,8 +9,14 @@ class Clicker < Formula
   depends_on "python@3.13"
 
   def install
-    # Create virtualenv and install dependencies
-    virtualenv_install_with_resources
+    # Create virtualenv
+    virtualenv_create(libexec, "python3.13")
+
+    # Install the package with all dependencies
+    system libexec/"bin/pip", "install", buildpath
+
+    # Create wrapper script
+    (bin/"clicker").write_env_script libexec/"bin/clicker", PATH: "#{libexec}/bin:$PATH"
   end
 
   def caveats
