@@ -48,9 +48,7 @@ EOF
 
 chmod 600 ~/.config/clicker/config.env
 
-# Install Playwright browsers
-PYTHONPATH=/opt/homebrew/opt/clicker/libexec/lib/python3.13/site-packages \
-  python3.13 -m playwright install chromium
+# Playwright browsers will be installed automatically on first run
 ```
 
 ### Option 2: Install from source
@@ -66,6 +64,40 @@ cp .env.example .env
 
 ## Usage
 
+### If installed via Homebrew
+
+```bash
+# Basic (headless)
+clicker "https://example.com" "Click the 'More information' link"
+
+# Visible browser
+clicker "https://example.com" "Click the link" --no-headless
+
+# With manual login pause (for sites requiring authentication)
+clicker "https://myapp.com" "Navigate to settings" --pause --no-headless
+
+# Using specific models
+clicker "https://example.com" "Click the link" \
+  --model anthropic_vertex/claude-haiku-4-5@20251001 \
+  --fallback-model anthropic_vertex/claude-sonnet-4-5@20250929
+
+# Named session
+clicker "https://example.com" "Complete task" --session my-experiment
+
+# Persistent sessions (save cookies between runs)
+clicker "https://myapp.com" "Login and navigate" --pause --user-data-dir ./my-profile
+# After manual login, cookies are saved to ./my-profile/
+# Future runs use the same profile (no re-login needed):
+clicker "https://myapp.com" "Check dashboard" --user-data-dir ./my-profile
+
+# Resume a session (after crash or Ctrl+C)
+clicker --last-session                    # Resume last session
+clicker --session 2026-02-13_14-30-00     # Resume specific session by name
+clicker --session my-experiment           # Resume named session
+```
+
+### If installed from source
+
 ```bash
 # Basic (headless)
 uv run python main.py "https://example.com" "Click the 'More information' link"
@@ -73,28 +105,12 @@ uv run python main.py "https://example.com" "Click the 'More information' link"
 # Visible browser + verbose logging
 make run-visible URL="https://example.com" SCENARIO="Click the 'More information' link"
 
-# With manual login pause (for sites requiring authentication)
-make run-pause URL="https://myapp.com" SCENARIO="Navigate to settings and change language to English"
-
-# Using specific models (primary + fallback)
-uv run python main.py "https://example.com" "Click the link" \
-  --model anthropic_vertex/claude-haiku-4-5@20251001 \
-  --fallback-model anthropic_vertex/claude-sonnet-4-5@20250929
-
-# Named session (custom session name instead of timestamp)
+# Named session
 make run URL="https://example.com" SCENARIO="Complete task" SESSION="my-experiment"
-# → Creates sessions/my-experiment/
 
-# Persistent sessions (save cookies between runs)
-make run-pause URL="https://myapp.com" SCENARIO="Login and navigate" USER_DATA_DIR="./my-profile"
-# After manual login, cookies are saved to ./my-profile/
-# Future runs use the same profile (no re-login needed):
-make run URL="https://myapp.com" SCENARIO="Check dashboard" USER_DATA_DIR="./my-profile"
-
-# Resume a session (after crash or Ctrl+C)
+# Resume a session
 make resume-last                          # Resume last session
 make resume SESSION="2026-02-13_14-30-00" # Resume specific session by name
-make resume SESSION="my-experiment"       # Resume named session
 ```
 
 ### CLI options
@@ -144,7 +160,7 @@ sessions/
       ...
 ```
 
-Sessions can be resumed after crashes or interruption (Ctrl+C) using `--resume-last` or `--resume <path>`.
+Sessions can be resumed after crashes or interruption (Ctrl+C) using `--last-session` or `--session <name>`.
 
 ## Model switching behavior
 
