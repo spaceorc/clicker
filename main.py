@@ -17,6 +17,7 @@ from session import (
     ResumeState,
     SessionState,
     build_resume_state,
+    get_sessions_dir,
     load_last_session,
     load_session,
     save_last_session,
@@ -221,16 +222,16 @@ def _load_config() -> Path | None:
     """Load environment variables from standard config locations.
 
     Searches in order:
-    1. ~/.config/clicker/config.env
-    2. ~/.clicker.env
+    1. ~/.clicker/config.env
+    2. ~/.config/clicker/config.env
     3. ./.env (current directory)
 
     Returns:
         Path to the loaded config file, or None if not found
     """
     config_paths = [
+        Path.home() / ".clicker" / "config.env",
         Path.home() / ".config" / "clicker" / "config.env",
-        Path.home() / ".clicker.env",
         Path.cwd() / ".env",
     ]
 
@@ -270,7 +271,7 @@ def main() -> None:
         session_dir = Path(args.session)
         # Relative paths are always in sessions/ directory
         if not session_dir.is_absolute():
-            session_dir = Path("sessions") / session_dir
+            session_dir = get_sessions_dir() / session_dir
 
         session_file = session_dir / "session.json"
         if session_file.exists():
@@ -286,7 +287,7 @@ def main() -> None:
             resuming = False
     else:
         # No session specified → create automatic session with timestamp
-        session_dir = Path("sessions") / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        session_dir = get_sessions_dir() / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
     # Handle resume mode
     if resuming:

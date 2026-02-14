@@ -23,11 +23,11 @@ class Clicker < Formula
     <<~EOS
       To get started, configure your API keys:
 
-      1. Create config directory:
-        mkdir -p ~/.config/clicker
+      1. Create clicker directory:
+        mkdir -p ~/.clicker
 
       2. Create config file with your credentials:
-        cat > ~/.config/clicker/config.env <<'EOF'
+        cat > ~/.clicker/config.env <<'EOF'
         # Google Vertex AI (for Anthropic via Vertex and Gemini)
         VERTEX_CREDENTIALS=<base64-encoded-service-account-json>
         VERTEX_PROJECT_NAME=my-project
@@ -39,13 +39,14 @@ class Clicker < Formula
         EOF
 
       3. Secure the config file:
-        chmod 600 ~/.config/clicker/config.env
+        chmod 600 ~/.clicker/config.env
 
       Alternative: You can also create .env file in your working directory.
 
       See .env.example in the clicker repository for more configuration options.
 
-      Note: Playwright browsers (Chromium) will be installed automatically on first run.
+      Note: Playwright browsers and session data will be stored in ~/.clicker/
+      Playwright browsers (Chromium) will be installed automatically on first run.
     EOS
   end
 

@@ -51,13 +51,13 @@ make install
 
 Clicker needs API credentials to work. There are several ways to configure them:
 
-### Option 1: Config file (recommended for Homebrew)
+### Option 1: Home directory config (recommended for Homebrew)
 
-Create `~/.config/clicker/config.env`:
+Create `~/.clicker/config.env`:
 
 ```bash
-mkdir -p ~/.config/clicker
-cat > ~/.config/clicker/config.env <<'EOF'
+mkdir -p ~/.clicker
+cat > ~/.clicker/config.env <<'EOF'
 # Google Vertex AI (for Anthropic via Vertex and Gemini)
 VERTEX_CREDENTIALS=<base64-encoded-service-account-json>
 VERTEX_PROJECT_NAME=my-project
@@ -68,12 +68,14 @@ OPENAI_API_KEY=sk-...
 OPENAI_BASE_URL=https://api.openai.com/v1
 EOF
 
-chmod 600 ~/.config/clicker/config.env
+chmod 600 ~/.clicker/config.env
 ```
 
-### Option 2: Home directory config
+All clicker data (config, sessions) will be stored in `~/.clicker/`.
 
-Create `~/.clicker.env` with the same content as above.
+### Option 2: XDG config directory
+
+Create `~/.config/clicker/config.env` with the same content as above. This is an alternative for users who prefer XDG directory structure.
 
 ### Option 3: Project directory (recommended for source)
 
@@ -99,8 +101,8 @@ export OPENAI_BASE_URL="https://api.openai.com/v1"
 ```
 
 **Config priority:** Clicker searches in this order:
-1. `~/.config/clicker/config.env`
-2. `~/.clicker.env`
+1. `~/.clicker/config.env`
+2. `~/.config/clicker/config.env`
 3. `./.env` (current directory)
 4. Environment variables
 

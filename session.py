@@ -12,7 +12,23 @@ from llm_caller import ConversationMessage, ImageContent, MessageRole, TextConte
 
 logger = logging.getLogger(__name__)
 
-_SESSIONS_DIR = Path("sessions")
+
+def get_sessions_dir() -> Path:
+    """Determine the sessions directory based on installation type.
+
+    - If pyproject.toml exists (source installation): ./sessions
+    - Otherwise (Homebrew installation): ~/.clicker/sessions
+    """
+    # Check if we're running from source (pyproject.toml exists in project root)
+    project_root = Path(__file__).parent
+    if (project_root / "pyproject.toml").exists():
+        return Path("sessions")
+
+    # Homebrew installation: use ~/.clicker/sessions
+    return Path.home() / ".clicker" / "sessions"
+
+
+_SESSIONS_DIR = get_sessions_dir()
 _LAST_SESSION_FILE = _SESSIONS_DIR / ".last_session"
 _SCREENSHOT_OMITTED = "[screenshot omitted]"
 
