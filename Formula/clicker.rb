@@ -11,9 +11,16 @@ class Clicker < Formula
   def install
     # Create virtualenv and install dependencies
     virtualenv_install_with_resources
+  end
 
-    # Install Playwright browsers
-    system libexec/"bin/playwright", "install", "chromium"
+  def caveats
+    <<~EOS
+      After installation, install Playwright browsers:
+        #{libexec}/bin/playwright install chromium
+
+      Or use the make command:
+        make install  # from clicker source directory
+    EOS
   end
 
   test do
