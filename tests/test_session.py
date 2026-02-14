@@ -13,6 +13,8 @@ from session import (
     deserialize_conversation,
     save_session,
     load_session,
+    save_last_session,
+    load_last_session,
     build_resume_state,
 )
 
@@ -288,3 +290,90 @@ def test_session_with_defaults(tmp_path):
     assert loaded.usage == {}  # default empty dict
     assert loaded.fallback_model is None  # default
     assert loaded.use_smart_model is False  # default
+
+
+@pytest.mark.unit
+def test_save_and_load_last_session(tmp_path, monkeypatch):
+    """Test saving and loading last session path."""
+    import session
+
+    # Patch the sessions directory to use tmp_path
+    sessions_dir = tmp_path / "sessions"
+    monkeypatch.setattr(session, "_SESSIONS_DIR", sessions_dir)
+    monkeypatch.setattr(session, "_LAST_SESSION_FILE", sessions_dir / ".last_session")
+
+    # Create a test session directory
+    session_dir = sessions_dir / "2026-02-13_14-30-00"
+    session_dir.mkdir(parents=True)
+
+    # Create minimal session.json
+    session_file = session_dir / "session.json"
+    session_file.write_text(json.dumps({"version": 1, "status": "in_progress"}))
+
+    # Save as last session (relative path under sessions/)
+    save_last_session(session_dir)
+
+    # Load last session
+    loaded_path = load_last_session()
+
+    assert loaded_path == session_dir
+
+
+@pytest.mark.unit
+def test_save_last_session_absolute_path(tmp_path, monkeypatch):
+    """Test saving last session with absolute path."""
+    import session
+
+    # Patch the sessions directory to use tmp_path
+    sessions_dir = tmp_path / "sessions"
+    monkeypatch.setattr(session, "_SESSIONS_DIR", sessions_dir)
+    monkeypatch.setattr(session, "_LAST_SESSION_FILE", sessions_dir / ".last_session")
+
+    # Create session outside sessions/
+    session_dir = tmp_path / "custom" / "my-session"
+    session_dir.mkdir(parents=True)
+
+    # Create minimal session.json
+    session_file = session_dir / "session.json"
+    session_file.write_text(json.dumps({"version": 1, "status": "in_progress"}))
+
+    # Save as last session (absolute path)
+    save_last_session(session_dir)
+
+    # Load last session
+    loaded_path = load_last_session()
+
+    assert loaded_path == session_dir.resolve()
+
+
+@pytest.mark.unit
+def test_load_last_session_missing_file(tmp_path, monkeypatch):
+    """Test that loading last session without .last_session file raises error."""
+    import session
+
+    # Patch the sessions directory to use tmp_path
+    sessions_dir = tmp_path / "sessions"
+    monkeypatch.setattr(session, "_SESSIONS_DIR", sessions_dir)
+    monkeypatch.setattr(session, "_LAST_SESSION_FILE", sessions_dir / ".last_session")
+
+    with pytest.raises(FileNotFoundError, match="No .last_session file found"):
+        load_last_session()
+
+
+@pytest.mark.unit
+def test_load_last_session_invalid_path(tmp_path, monkeypatch):
+    """Test that loading last session with invalid path raises error."""
+    import session
+
+    # Patch the sessions directory to use tmp_path
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir(parents=True)
+    monkeypatch.setattr(session, "_SESSIONS_DIR", sessions_dir)
+    monkeypatch.setattr(session, "_LAST_SESSION_FILE", sessions_dir / ".last_session")
+
+    # Create .last_session pointing to nonexistent directory
+    last_session_file = sessions_dir / ".last_session"
+    last_session_file.write_text("nonexistent-session")
+
+    with pytest.raises(FileNotFoundError, match="Last session not found"):
+        load_last_session()

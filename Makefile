@@ -20,24 +20,30 @@ else
     USER_DATA_FLAG =
 endif
 
+ifneq ($(SESSION),)
+    SESSION_FLAG = --session "$(SESSION)"
+else
+    SESSION_FLAG =
+endif
+
 install:
 	uv sync
 	uv run playwright install chromium
 
 run:
-	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)" $(USER_DATA_FLAG) $(VERBOSE_FLAG)
+	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)" $(SESSION_FLAG) $(USER_DATA_FLAG) $(VERBOSE_FLAG)
 
 run-visible:
-	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless $(USER_DATA_FLAG) $(VERBOSE_FLAG)
+	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless $(SESSION_FLAG) $(USER_DATA_FLAG) $(VERBOSE_FLAG)
 
 run-pause:
-	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless --pause $(USER_DATA_FLAG) $(VERBOSE_FLAG)
+	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless --pause $(SESSION_FLAG) $(USER_DATA_FLAG) $(VERBOSE_FLAG)
 
 resume:
-	uv run python main.py --resume "$(SESSION)" --no-headless $(VERBOSE_FLAG)
+	uv run python main.py --session "$(SESSION)" --no-headless $(USER_DATA_FLAG) $(VERBOSE_FLAG)
 
 resume-last:
-	uv run python main.py --resume-last --no-headless $(VERBOSE_FLAG)
+	uv run python main.py --last-session --no-headless $(USER_DATA_FLAG) $(VERBOSE_FLAG)
 
 test:
 	uv run pytest -m "not integration" -v -n auto

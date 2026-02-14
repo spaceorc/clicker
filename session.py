@@ -13,6 +13,7 @@ from llm_caller import ConversationMessage, ImageContent, MessageRole, TextConte
 logger = logging.getLogger(__name__)
 
 _SESSIONS_DIR = Path("sessions")
+_LAST_SESSION_FILE = _SESSIONS_DIR / ".last_session"
 _SCREENSHOT_OMITTED = "[screenshot omitted]"
 
 
@@ -200,3 +201,50 @@ def build_resume_state(session: SessionState) -> ResumeState:
         usage=usage,
         use_smart_model=session.use_smart_model,
     )
+
+
+def save_last_session(session_path: Path) -> None:
+    """Save the last session path to .last_session file.
+
+    Args:
+        session_path: Path to the session directory (can be relative or absolute)
+    """
+    _SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Store relative path if it's under sessions/, otherwise absolute
+    if session_path.is_relative_to(_SESSIONS_DIR):
+        # Store just the session name (relative to sessions/)
+        relative_path = session_path.relative_to(_SESSIONS_DIR)
+        _LAST_SESSION_FILE.write_text(str(relative_path), encoding="utf-8")
+    else:
+        # Store absolute path
+        _LAST_SESSION_FILE.write_text(str(session_path.resolve()), encoding="utf-8")
+
+    logger.debug("Saved last session: %s", session_path)
+
+
+def load_last_session() -> Path:
+    """Load the last session path from .last_session file.
+
+    Returns:
+        Path to the session directory
+
+    Raises:
+        FileNotFoundError: If .last_session file doesn't exist or session is invalid
+    """
+    if not _LAST_SESSION_FILE.exists():
+        raise FileNotFoundError("No .last_session file found. Start a new session first.")
+
+    session_path_str = _LAST_SESSION_FILE.read_text(encoding="utf-8").strip()
+    session_path = Path(session_path_str)
+
+    # Relative paths are relative to sessions/
+    if not session_path.is_absolute():
+        session_path = _SESSIONS_DIR / session_path
+
+    # Verify session exists and is valid
+    session_file = session_path / "session.json"
+    if not session_file.exists():
+        raise FileNotFoundError(f"Last session not found: {session_path}")
+
+    return session_path

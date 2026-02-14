@@ -17,8 +17,9 @@ from session import (
     ResumeState,
     SessionState,
     build_resume_state,
-    find_latest_session,
+    load_last_session,
     load_session,
+    save_last_session,
     save_session,
     serialize_conversation,
 )
@@ -60,15 +61,15 @@ def _parse_args() -> argparse.Namespace:
         help="Enable verbose (DEBUG) logging",
     )
     parser.add_argument(
-        "--resume",
-        metavar="SESSION_DIR",
+        "--session",
+        metavar="SESSION",
         default=None,
-        help="Resume from a specific session directory",
+        help="Session ID or path. If session exists, resumes it. If not, creates new session with this name.",
     )
     parser.add_argument(
-        "--resume-last",
+        "--last-session",
         action="store_true",
-        help="Resume the most recent in-progress session",
+        help="Resume the last session (from sessions/.last_session)",
     )
     parser.add_argument(
         "--user-data-dir",
@@ -221,28 +222,48 @@ def main() -> None:
 
     args = _parse_args()
 
-    # Handle resume
+    # Determine session directory and mode (resume vs new)
     resuming = False
     session: SessionState | None = None
     session_dir: Path | None = None
 
-    if args.resume_last:
+    if args.last_session:
+        # Resume from last session
         try:
-            session_dir = find_latest_session()
+            session_dir = load_last_session()
         except FileNotFoundError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
-        session = load_session(session_dir)
-        resuming = True
-    elif args.resume:
-        session_dir = Path(args.resume)
         try:
             session = load_session(session_dir)
         except FileNotFoundError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
         resuming = True
+    elif args.session:
+        # Smart session handling: resume if exists, create if not
+        session_dir = Path(args.session)
+        # Relative paths are always in sessions/ directory
+        if not session_dir.is_absolute():
+            session_dir = Path("sessions") / session_dir
 
+        session_file = session_dir / "session.json"
+        if session_file.exists():
+            # Session exists → resume
+            try:
+                session = load_session(session_dir)
+            except (FileNotFoundError, ValueError) as e:
+                print(f"Error loading session: {e}", file=sys.stderr)
+                sys.exit(1)
+            resuming = True
+        else:
+            # Session doesn't exist → create new with this name
+            resuming = False
+    else:
+        # No session specified → create automatic session with timestamp
+        session_dir = Path("sessions") / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    # Handle resume mode
     if resuming:
         assert session is not None
         assert session_dir is not None
@@ -262,15 +283,18 @@ def main() -> None:
         args.resume_state = build_resume_state(session)
         args.run_dir = session_dir
     else:
-        # Validate required args for fresh run
+        # New session mode
         if not args.url or not args.scenario:
             print("Error: url and scenario are required for new runs", file=sys.stderr)
             sys.exit(1)
         args.model = args.model or "anthropic_vertex/claude-haiku-4-5@20251001"
         args.fallback_model = args.fallback_model or "anthropic_vertex/claude-sonnet-4-5@20250929"
         args.resume_state = None
-        args.run_dir = Path("sessions") / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        args.run_dir = session_dir
         args.run_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save this as the last session
+    save_last_session(args.run_dir)
 
     log_format = "%(asctime)s %(levelname)-8s %(name)s — %(message)s"
     log_datefmt = "%H:%M:%S"
