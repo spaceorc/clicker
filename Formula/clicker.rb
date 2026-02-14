@@ -9,16 +9,14 @@ class Clicker < Formula
   depends_on "python@3.13"
 
   def install
-    # Create virtualenv
-    virtualenv_create(libexec, "python3.13")
-
-    # Install the package with all dependencies from pyproject.toml
-    cd buildpath do
-      system libexec/"bin/pip", "install", "--verbose", "."
-    end
+    # Install directly using pip with all dependencies
+    # This bypasses Homebrew's --no-deps restriction
+    system "python3.13", "-m", "pip", "install", "--prefix=#{libexec}", "."
 
     # Create wrapper script
-    (bin/"clicker").write_env_script libexec/"bin/clicker", PATH: "#{libexec}/bin:$PATH"
+    (bin/"clicker").write_env_script libexec/"bin/clicker",
+      PYTHONPATH: libexec/"lib/python3.13/site-packages",
+      PATH:       "#{libexec}/bin:$PATH"
   end
 
   def caveats
