@@ -377,6 +377,12 @@ def main() -> None:
                 data["model"],
             )
         sys.exit(130)  # Standard exit code for Ctrl+C
+    except Exception as e:
+        # Log full stack trace to file
+        logging.exception("Fatal error")
+        # Print only error message to console
+        console_output.console.print(f"[bold red]Error:[/bold red] {e}")
+        sys.exit(1)
 
     _save_final_status(args, result)
 
