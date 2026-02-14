@@ -12,8 +12,10 @@ class Clicker < Formula
     # Create virtualenv
     virtualenv_create(libexec, "python3.13")
 
-    # Install the package with all dependencies
-    system libexec/"bin/pip", "install", buildpath
+    # Install the package with all dependencies from pyproject.toml
+    cd buildpath do
+      system libexec/"bin/pip", "install", "--verbose", "."
+    end
 
     # Create wrapper script
     (bin/"clicker").write_env_script libexec/"bin/clicker", PATH: "#{libexec}/bin:$PATH"
