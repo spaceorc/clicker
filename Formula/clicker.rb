@@ -19,9 +19,14 @@ class Clicker < Formula
       PATH:       "#{libexec}/bin:$PATH"
   end
 
+  def post_install
+    # Install Playwright browsers after package installation
+    system libexec/"bin/python", "-m", "playwright", "install", "chromium"
+  end
+
   def caveats
     <<~EOS
-      After installation, configure your API keys:
+      To get started, configure your API keys:
 
       1. Create config directory:
         mkdir -p ~/.config/clicker
@@ -41,12 +46,11 @@ class Clicker < Formula
       3. Secure the config file:
         chmod 600 ~/.config/clicker/config.env
 
-      4. Install Playwright browsers:
-        PYTHONPATH=#{libexec}/lib/python3.13/site-packages python3.13 -m playwright install chromium
-
       Alternative: You can also create .env file in your working directory.
 
       See .env.example in the clicker repository for more configuration options.
+
+      Note: Playwright browsers (Chromium) are installed automatically.
     EOS
   end
 
