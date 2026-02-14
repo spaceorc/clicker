@@ -217,8 +217,33 @@ def _save_final_status(args: argparse.Namespace, result: AgentResult) -> None:
         Path(tmp_path).replace(session_file)
 
 
+def _load_config() -> Path | None:
+    """Load environment variables from standard config locations.
+
+    Searches in order:
+    1. ~/.config/clicker/config.env
+    2. ~/.clicker.env
+    3. ./.env (current directory)
+
+    Returns:
+        Path to the loaded config file, or None if not found
+    """
+    config_paths = [
+        Path.home() / ".config" / "clicker" / "config.env",
+        Path.home() / ".clicker.env",
+        Path.cwd() / ".env",
+    ]
+
+    for config_path in config_paths:
+        if config_path.exists():
+            load_dotenv(config_path)
+            return config_path
+
+    return None
+
+
 def main() -> None:
-    load_dotenv()
+    _load_config()
 
     args = _parse_args()
 

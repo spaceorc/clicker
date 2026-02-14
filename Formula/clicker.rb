@@ -21,11 +21,32 @@ class Clicker < Formula
 
   def caveats
     <<~EOS
-      After installation, install Playwright browsers:
-        #{libexec}/bin/playwright install chromium
+      After installation, configure your API keys:
 
-      Or use the make command:
-        make install  # from clicker source directory
+      1. Create config directory:
+        mkdir -p ~/.config/clicker
+
+      2. Create config file with your credentials:
+        cat > ~/.config/clicker/config.env <<'EOF'
+        # Google Vertex AI (for Anthropic via Vertex and Gemini)
+        VERTEX_CREDENTIALS=<base64-encoded-service-account-json>
+        VERTEX_PROJECT_NAME=my-project
+        VERTEX_LOCATION=europe-west1
+
+        # OpenAI (optional)
+        OPENAI_API_KEY=sk-...
+        OPENAI_BASE_URL=https://api.openai.com/v1
+        EOF
+
+      3. Secure the config file:
+        chmod 600 ~/.config/clicker/config.env
+
+      4. Install Playwright browsers:
+        PYTHONPATH=#{libexec}/lib/python3.13/site-packages python3.13 -m playwright install chromium
+
+      Alternative: You can also create .env file in your working directory.
+
+      See .env.example in the clicker repository for more configuration options.
     EOS
   end
 

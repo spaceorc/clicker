@@ -27,6 +27,34 @@ The agent works by repeatedly taking screenshots, sending them to a vision-capab
 
 ## Setup
 
+### Option 1: Install via Homebrew (recommended)
+
+```bash
+# Add tap and install
+brew tap spaceorc/clicker
+brew install --HEAD clicker
+
+# Configure credentials
+mkdir -p ~/.config/clicker
+cat > ~/.config/clicker/config.env <<'EOF'
+# Google Vertex AI (for Anthropic via Vertex and Gemini)
+VERTEX_CREDENTIALS=<base64-encoded-service-account-json>
+VERTEX_PROJECT_NAME=my-project
+VERTEX_LOCATION=europe-west1
+
+# OpenAI (optional)
+OPENAI_API_KEY=sk-...
+EOF
+
+chmod 600 ~/.config/clicker/config.env
+
+# Install Playwright browsers
+PYTHONPATH=/opt/homebrew/opt/clicker/libexec/lib/python3.13/site-packages \
+  python3.13 -m playwright install chromium
+```
+
+### Option 2: Install from source
+
 ```bash
 # Install dependencies
 make install
