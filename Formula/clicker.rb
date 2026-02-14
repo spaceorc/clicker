@@ -21,9 +21,7 @@ class Clicker < Formula
 
   def post_install
     # Install Playwright browsers after package installation
-    # Need to set PYTHONPATH because playwright is installed via pip --prefix
-    ENV["PYTHONPATH"] = "#{libexec}/lib/python3.13/site-packages"
-    system libexec/"bin/python", "-m", "playwright", "install", "chromium"
+    system libexec/"bin/playwright", "install", "chromium"
   end
 
   def caveats
