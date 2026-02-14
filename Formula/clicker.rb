@@ -51,6 +51,6 @@ class Clicker < Formula
   end
 
   test do
-    system "#{bin}/clicker", "--help"
+    system "#{bin}/clicker", "run", "--help"
   end
 end

@@ -108,63 +108,70 @@ export OPENAI_BASE_URL="https://api.openai.com/v1"
 
 ## Usage
 
-### If installed via Homebrew
+### Commands
 
 ```bash
-# Basic (headless)
-clicker "https://example.com" "Click the 'More information' link"
+# Run a new automation task
+clicker run <url> <scenario> [options]
+
+# Resume a session
+clicker resume <session_id>
+clicker resume --last
+
+# List all sessions
+clicker list
+
+# Show session details
+clicker show <session_id>
+clicker show --last
+clicker show <session_id> --full  # Include full conversation
+```
+
+### Examples
+
+```bash
+# Basic run (headless)
+clicker run "https://example.com" "Click the 'More information' link"
 
 # Visible browser
-clicker "https://example.com" "Click the link" --no-headless
+clicker run "https://example.com" "Click the link" --no-headless
 
 # With manual login pause (for sites requiring authentication)
-clicker "https://myapp.com" "Navigate to settings" --pause --no-headless
+clicker run "https://myapp.com" "Navigate to settings" --pause --no-headless
 
 # Using specific models
-clicker "https://example.com" "Click the link" \
+clicker run "https://example.com" "Click the link" \
   --model anthropic_vertex/claude-haiku-4-5@20251001 \
   --fallback-model anthropic_vertex/claude-sonnet-4-5@20250929
 
 # Named session
-clicker "https://example.com" "Complete task" --session my-experiment
+clicker run "https://example.com" "Complete task" --session my-experiment
 
 # Persistent sessions (save cookies between runs)
-clicker "https://myapp.com" "Login and navigate" --pause --user-data-dir ./my-profile
+clicker run "https://myapp.com" "Login and navigate" --pause --user-data-dir ./my-profile
 # After manual login, cookies are saved to ./my-profile/
 # Future runs use the same profile (no re-login needed):
-clicker "https://myapp.com" "Check dashboard" --user-data-dir ./my-profile
+clicker run "https://myapp.com" "Check dashboard" --user-data-dir ./my-profile
 
 # Resume a session (after crash or Ctrl+C)
-clicker --last-session                    # Resume last session
-clicker --session 2026-02-13_14-30-00     # Resume specific session by name
-clicker --session my-experiment           # Resume named session
+clicker resume --last                     # Resume last session
+clicker resume 2026-02-13_14-30-00        # Resume specific session
+clicker resume my-experiment              # Resume named session
+
+# View sessions
+clicker list                              # List all sessions with status
+clicker show --last                       # Show last session details
+clicker show 2026-02-13_14-30-00          # Show specific session
+clicker show my-experiment --full         # Show with full conversation
 ```
 
-### If installed from source
-
-```bash
-# Basic (headless)
-uv run python main.py "https://example.com" "Click the 'More information' link"
-
-# Visible browser + verbose logging
-make run-visible URL="https://example.com" SCENARIO="Click the 'More information' link"
-
-# Named session
-make run URL="https://example.com" SCENARIO="Complete task" SESSION="my-experiment"
-
-# Resume a session
-make resume-last                          # Resume last session
-make resume SESSION="2026-02-13_14-30-00" # Resume specific session by name
-```
-
-### CLI options
+### CLI options for `run` command
 
 | Flag | Description |
 |------|-------------|
 | `--model provider/model` | Primary LLM to use (default: `anthropic_vertex/claude-haiku-4-5@20251001`) |
 | `--fallback-model provider/model` | Fallback LLM for stuck situations or critical tasks (default: `anthropic_vertex/claude-sonnet-4-5@20250929`) |
-| `--session SESSION` | Session name or path. If exists, resumes it. If not, creates new session with this name. |
-| `--last-session` | Resume the last session (from `sessions/.last_session`) |
+| `--session NAME` | Named session (saved in sessions/<name>). If exists, resumes it. If not, creates new session with this name. |
 | `--no-headless` | Show the browser window |
 | `--pause` | Pause after page load for manual login, press Enter to start |
 | `--max-steps N` | Limit agent steps (default: 0 = unlimited) |

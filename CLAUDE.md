@@ -5,14 +5,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
+# Installation
 make install          # Install deps + Playwright chromium
-make run-visible URL="..." SCENARIO="..."   # Run with visible browser
-make run-pause URL="..." SCENARIO="..."     # Run with pause for manual login
-make resume SESSION="sessions/2026-..."     # Resume specific session
-make resume-last                            # Resume most recent in-progress session
-uv run python main.py <url> <scenario> [--model provider/model] [--no-headless] [--pause] [--max-steps N] [-v]
-uv run python main.py --resume <session_dir> [--no-headless] [-v]
-uv run python main.py --resume-last [--no-headless] [-v]
+
+# Run automation
+uv run python main.py run <url> <scenario> [--model provider/model] [--no-headless] [--pause] [--max-steps N] [-v]
+uv run python main.py run <url> <scenario> --session <name>  # Named session
+
+# Resume sessions
+uv run python main.py resume <session_id> [--no-headless] [-v]
+uv run python main.py resume --last [--no-headless] [-v]
+
+# View sessions
+uv run python main.py list                    # List all sessions
+uv run python main.py show <session_id>       # Show session details
+uv run python main.py show --last             # Show last session
+uv run python main.py show <id> --full        # Show with full conversation
+
+# Makefile shortcuts (still available)
+make run-visible URL="..." SCENARIO="..."     # Run with visible browser
+make run-pause URL="..." SCENARIO="..."       # Run with pause for manual login
 ```
 
 ## Architecture

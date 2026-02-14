@@ -1,4 +1,4 @@
-.PHONY: install run run-visible run-pause resume resume-last test test-integration help
+.PHONY: install run run-visible run-pause resume resume-last list show test test-integration help
 
 URL ?=
 SCENARIO ?=
@@ -31,19 +31,25 @@ install:
 	uv run playwright install chromium
 
 run:
-	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)" $(SESSION_FLAG) $(USER_DATA_FLAG) $(VERBOSE_FLAG)
+	uv run python main.py $(VERBOSE_FLAG) run "$(URL)" "$(SCENARIO)" --model "$(MODEL)" $(SESSION_FLAG) $(USER_DATA_FLAG)
 
 run-visible:
-	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless $(SESSION_FLAG) $(USER_DATA_FLAG) $(VERBOSE_FLAG)
+	uv run python main.py $(VERBOSE_FLAG) run "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless $(SESSION_FLAG) $(USER_DATA_FLAG)
 
 run-pause:
-	uv run python main.py "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless --pause $(SESSION_FLAG) $(USER_DATA_FLAG) $(VERBOSE_FLAG)
+	uv run python main.py $(VERBOSE_FLAG) run "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless --pause $(SESSION_FLAG) $(USER_DATA_FLAG)
 
 resume:
-	uv run python main.py --session "$(SESSION)" --no-headless $(USER_DATA_FLAG) $(VERBOSE_FLAG)
+	uv run python main.py $(VERBOSE_FLAG) resume "$(SESSION)" --no-headless
 
 resume-last:
-	uv run python main.py --last-session --no-headless $(USER_DATA_FLAG) $(VERBOSE_FLAG)
+	uv run python main.py $(VERBOSE_FLAG) resume --last --no-headless
+
+list:
+	uv run python main.py list
+
+show:
+	uv run python main.py show "$(SESSION)"
 
 test:
 	uv run pytest -m "not integration" -v -n auto
