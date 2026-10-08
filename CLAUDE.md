@@ -35,7 +35,7 @@ Screenshot-driven agent loop: Playwright browser takes screenshots, sends them t
 
 - **`llm_caller/`** — Abstraction over multiple LLM providers (OpenAI, Anthropic Vertex, Google Vertex). Supports multimodal messages (text + base64 images). Each provider converts `ConversationMessage` to its native API format. Uses Pydantic models for structured output via JSON schema.
 - **`browser/`** — Playwright wrapper. Handles lifecycle, navigation, mouse/keyboard actions, screenshots with coordinate grid overlay (Pillow).
-- **`agent/`** — Core agent logic. `actions.py` defines a Pydantic discriminated union of 9 action types. `prompts.py` builds the system prompt. `loop.py` runs the screenshot→LLM→action loop with conversation compression, stuck detection, and timeout.
+- **`agent/`** — Core agent logic. `actions.py` defines a Pydantic discriminated union of 10 action types. `prompts.py` builds the system prompt. `loop.py` runs the screenshot→LLM→action loop with conversation compression, stuck detection, and timeout.
 - **`main.py`** — CLI entry point. Parses args, sets up logging (console + file), creates LLM caller and browser, runs agent loop.
 
 ### LLM provider pattern

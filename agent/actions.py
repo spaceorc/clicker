@@ -62,6 +62,13 @@ class DragAction(BaseModel):
     to_y: int = Field(description="Y coordinate to drop at")
 
 
+class SwitchPageAction(BaseModel):
+    """Switch to another open page (tab, popup or window)."""
+
+    action: Literal["switch_page"] = "switch_page"
+    page_id: int = Field(description="Id of the page to switch to, from the list of open pages")
+
+
 class DoneAction(BaseModel):
     """Scenario completed successfully."""
 
@@ -77,7 +84,7 @@ class FailAction(BaseModel):
 
 
 Action = Annotated[
-    ClickAction | DoubleClickAction | TypeAction | PressKeyAction | ScrollAction | DragAction | WaitAction | DoneAction | FailAction,
+    ClickAction | DoubleClickAction | TypeAction | PressKeyAction | ScrollAction | DragAction | WaitAction | SwitchPageAction | DoneAction | FailAction,
     Field(discriminator="action"),
 ]
 

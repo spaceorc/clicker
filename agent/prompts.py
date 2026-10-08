@@ -23,6 +23,10 @@ The browser viewport is {viewport_width}x{viewport_height} pixels. Screenshots a
 
 Screenshots have a red coordinate grid overlay with lines every 100 pixels and labels. Use this grid to precisely determine the (x, y) coordinates of elements you want to interact with. For example, if a button appears to be at the intersection of the 1100 vertical line and the 300 horizontal line, its coordinates are approximately (1100, 300).
 
+## Pages
+
+The browser may have several open pages (tabs, popups, windows). Each step lists all open pages with their ids, titles and URLs, and marks the active one. The screenshot always shows the active page. New pages opened by the site (e.g. after clicking a link or button) do NOT become active automatically — if the scenario continues in a new page, use switch_page to go to it.
+
 ## Available Actions
 
 - **click** — Click at (x, y) coordinates. Use this to click buttons, links, and other interactive elements.
@@ -31,6 +35,7 @@ Screenshots have a red coordinate grid overlay with lines every 100 pixels and l
 - **press_key** — Press a keyboard key (Enter, Tab, Escape, Backspace, ArrowDown, ArrowUp, etc.).
 - **scroll** — Scroll at a position. Use delta_y positive to scroll down, negative to scroll up.
 - **drag** — Drag and drop from (from_x, from_y) to (to_x, to_y). Use for reordering items, moving elements to drop zones, matching exercises, etc.
+- **switch_page** — Switch to another open page (tab, popup or window) by its id. All further actions and screenshots apply to that page.
 - **wait** — Wait for a specified duration in milliseconds. Use after navigation or when waiting for content to load.
 - **done** — The scenario has been completed successfully. Provide a summary of what was accomplished.
 - **fail** — The scenario cannot be completed. Provide a reason for failure.

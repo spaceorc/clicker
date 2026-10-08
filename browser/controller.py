@@ -54,10 +54,20 @@ class ViewportSize:
     height: int = 720
 
 
+@dataclass(frozen=True, slots=True)
+class PageInfo:
+    """Open browser page (tab, popup or window)."""
+
+    id: int
+    url: str
+    title: str
+    active: bool
+
+
 class BrowserController:
     """Playwright wrapper for browser automation."""
 
-    __slots__ = ("_browser", "_context", "_headless", "_page", "_playwright", "_viewport", "_user_data_dir")
+    __slots__ = ("_browser", "_context", "_headless", "_next_page_id", "_page", "_pages", "_playwright", "_viewport", "_user_data_dir")
 
     def __init__(self, viewport: ViewportSize | None = None, headless: bool = True, user_data_dir: str | None = None) -> None:
         self._viewport = viewport or ViewportSize()
@@ -67,6 +77,8 @@ class BrowserController:
         self._browser: Browser | None = None
         self._context: BrowserContext | None = None
         self._page: Page | None = None
+        self._pages: dict[int, Page] = {}  # open pages by stable id, in opening order
+        self._next_page_id = 1
 
     @property
     def viewport(self) -> ViewportSize:
@@ -121,7 +133,11 @@ class BrowserController:
                 headless=self._headless,
                 viewport={"width": self._viewport.width, "height": self._viewport.height},
             )
-            self._page = self._context.pages[0] if self._context.pages else await self._context.new_page()
+            self._context.on("page", lambda page: self._track_page(page))
+            for page in self._context.pages:
+                self._track_page(page)
+            if not self._pages:
+                self._track_page(await self._context.new_page())
             logger.info("Browser started with persistent context (headless=%s, viewport=%dx%d)",
                        self._headless, self._viewport.width, self._viewport.height)
         else:
@@ -130,9 +146,49 @@ class BrowserController:
             self._context = await self._browser.new_context(
                 viewport={"width": self._viewport.width, "height": self._viewport.height},
             )
-            self._page = await self._context.new_page()
+            self._context.on("page", lambda page: self._track_page(page))
+            self._track_page(await self._context.new_page())
             logger.info("Browser started (headless=%s, viewport=%dx%d)",
                        self._headless, self._viewport.width, self._viewport.height)
+
+    def _track_page(self, page: Page) -> None:
+        """Register an open page (popup, new tab or window). The active page stays the same."""
+        if page in self._pages.values():
+            return
+        page_id = self._next_page_id
+        self._next_page_id += 1
+        self._pages[page_id] = page
+        page.on("close", lambda: self._on_page_closed(page_id))
+        if self._page is None:
+            self._page = page
+        else:
+            logger.info("New page %d opened: %s", page_id, page.url)
+
+    def _on_page_closed(self, page_id: int) -> None:
+        page = self._pages.pop(page_id, None)
+        if page is not None and self._page is page:
+            self._page = next(reversed(self._pages.values()), None)
+            logger.info("Active page %d closed, switched to: %s", page_id, self._page.url if self._page else None)
+
+    async def list_pages(self) -> list[PageInfo]:
+        """List open pages with their ids, titles and URLs."""
+        result: list[PageInfo] = []
+        for page_id, page in self._pages.items():
+            try:
+                title = await page.title()
+            except Exception:
+                title = ""
+            result.append(PageInfo(id=page_id, url=page.url, title=title, active=page is self._page))
+        return result
+
+    async def switch_page(self, page_id: int) -> None:
+        """Make the page with the given id active."""
+        page = self._pages.get(page_id)
+        if page is None:
+            raise ValueError(f"No open page with id {page_id}")
+        logger.info("Switching to page %d: %s", page_id, page.url)
+        self._page = page
+        await page.bring_to_front()
 
     async def stop(self) -> None:
         """Close browser and cleanup."""
@@ -143,6 +199,7 @@ class BrowserController:
         if self._playwright:
             await self._playwright.stop()
         self._page = None
+        self._pages = {}
         self._context = None
         self._browser = None
         self._playwright = None

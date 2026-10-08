@@ -241,6 +241,7 @@ The LLM can choose from these actions at each step:
 - **scroll** — scroll at a position with delta
 - **drag** — drag and drop between two coordinates
 - **wait** — wait for a specified duration
+- **switch_page** — switch to another open tab/popup/window (the list of open pages is shown to the LLM at each step; new pages don't become active automatically)
 - **done** — report success
 - **fail** — report failure
 

@@ -25,6 +25,7 @@ from .actions import (
     FailAction,
     PressKeyAction,
     ScrollAction,
+    SwitchPageAction,
     TypeAction,
     WaitAction,
 )
@@ -53,8 +54,11 @@ _STUCK_SCREENSHOT_LIMIT = 5  # same screenshot seen this many times = stuck
 _TIMEOUT_SECONDS = 30 * 60  # 30 minutes total
 
 
-async def _execute_action(browser: BrowserController, action: AgentResponse) -> None:
-    """Execute an action on the browser, then wait for the page to settle."""
+async def _execute_action(browser: BrowserController, action: AgentResponse) -> str | None:
+    """Execute an action on the browser, then wait for the page to settle.
+
+    Returns an error message for the agent if the action could not be executed.
+    """
     act = action.action
     match act:
         case ClickAction():
@@ -71,11 +75,27 @@ async def _execute_action(browser: BrowserController, action: AgentResponse) -> 
             await browser.drag(act.from_x, act.from_y, act.to_x, act.to_y)
         case WaitAction():
             await browser.wait(act.ms)
-            return  # already waited, skip post-action delay
+            return None  # already waited, skip post-action delay
+        case SwitchPageAction():
+            try:
+                await browser.switch_page(act.page_id)
+            except ValueError as e:
+                return str(e)
+            return None  # page is already loaded, no delay needed
         case DoneAction() | FailAction():
-            return  # terminal actions, no delay needed
+            return None  # terminal actions, no delay needed
 
     await browser.wait(_POST_ACTION_DELAY_MS)
+    return None
+
+
+async def _describe_pages(browser: BrowserController) -> str:
+    """Describe open pages for the agent."""
+    lines = ["Open pages:"]
+    for info in await browser.list_pages():
+        marker = " (active)" if info.active else ""
+        lines.append(f"  [{info.id}]{marker} {info.title or '(no title)'} — {info.url}")
+    return "\n".join(lines)
 
 
 def _compress_conversation(conversation: list[ConversationMessage]) -> list[ConversationMessage]:
@@ -196,6 +216,8 @@ async def run_agent(
     # Track if smart mode was permanently requested
     smart_mode_requested = resume.use_smart_model if resume else False
 
+    action_error: str | None = None
+
     try:
         while True:
             step += 1
@@ -306,11 +328,14 @@ async def run_agent(
 
             # Build user message with screenshot
             step_label = f"Step {step}" if max_steps == 0 else f"Step {step}/{max_steps}"
+            pages_text = await _describe_pages(browser)
+            error_text = f"\nPrevious action failed: {action_error}" if action_error else ""
+            action_error = None
             user_message = ConversationMessage(
                 role=MessageRole.USER,
                 content=[
                     ImageContent(data=screenshot_b64, media_type="image/png"),
-                    TextContent(text=f"Current URL: {current_url}\n{step_label}. What should I do next?{stuck_hint}"),
+                    TextContent(text=f"Current URL: {current_url}\n{pages_text}{error_text}\n{step_label}. What should I do next?{stuck_hint}"),
                 ],
             )
             conversation.append(user_message)
@@ -391,7 +416,9 @@ async def run_agent(
                 return AgentResult(success=False, summary=response.action.reason, steps_taken=step, usage=total_usage, model=llm.model, usage_by_model=usage_by_model, final_url=current_url)
 
             # Execute the action
-            await _execute_action(browser, response)
+            action_error = await _execute_action(browser, response)
+            if action_error:
+                logger.warning("Action failed: %s", action_error)
 
             # Notify callback after action execution
             if on_step_done:

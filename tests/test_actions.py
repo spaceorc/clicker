@@ -12,6 +12,7 @@ from agent.actions import (
     ScrollAction,
     DragAction,
     WaitAction,
+    SwitchPageAction,
     DoneAction,
     FailAction,
 )
@@ -86,6 +87,27 @@ def test_wait_action_valid():
 
     assert action.action == "wait"
     assert action.ms == 1000
+
+
+@pytest.mark.unit
+def test_switch_page_action_valid():
+    """Test creating a valid switch_page action."""
+    action = SwitchPageAction(page_id=2)
+
+    assert action.action == "switch_page"
+    assert action.page_id == 2
+
+
+@pytest.mark.unit
+def test_switch_page_action_from_llm_json():
+    """Test parsing switch_page action from LLM JSON."""
+    response = AgentResponse.model_validate_json(
+        '{"observation": "Popup opened", "reasoning": "Continue in popup", "next_step": "Switching to popup",'
+        ' "action": {"action": "switch_page", "page_id": 3}}'
+    )
+
+    assert isinstance(response.action, SwitchPageAction)
+    assert response.action.page_id == 3
 
 
 @pytest.mark.unit
