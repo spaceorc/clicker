@@ -65,3 +65,17 @@ def estimate_cost(model: str, usage: UsageStats) -> float | None:
                 + usage.cache_creation_tokens * p.cache_creation
             ) / 1_000_000
     return None
+
+
+def estimate_total_cost(usage_by_model: dict[str, UsageStats]) -> float | None:
+    """Estimate dollar cost of usage spread over several models, each at its own price.
+
+    Returns None if any model with usage has no pricing entry.
+    """
+    total = 0.0
+    for model, usage in usage_by_model.items():
+        cost = estimate_cost(model, usage)
+        if cost is None:
+            return None
+        total += cost
+    return total

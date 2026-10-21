@@ -24,6 +24,9 @@ from session import (
     save_last_session,
     save_session,
     serialize_conversation,
+    session_usage_by_model,
+    usage_from_dict,
+    usage_to_dict,
 )
 from llm_caller.base import UsageStats
 
@@ -168,12 +171,8 @@ def _make_step_callback(
             screenshot_counts=dict(state.screenshot_counts),
             screenshot_warnings=dict(state.screenshot_warnings),
             conversation=serialize_conversation(state.conversation),
-            usage={
-                "input_tokens": state.usage.input_tokens,
-                "output_tokens": state.usage.output_tokens,
-                "cache_read_tokens": state.usage.cache_read_tokens,
-                "cache_creation_tokens": state.usage.cache_creation_tokens,
-            },
+            usage=usage_to_dict(state.usage),
+            usage_by_model={model: usage_to_dict(usage) for model, usage in state.usage_by_model.items()},
         )
         save_session(session_dir, session_state)
     return on_step_done
@@ -261,12 +260,8 @@ def _save_final_status(args: argparse.Namespace, result: AgentResult) -> None:
         data = json.loads(session_file.read_text(encoding="utf-8"))
         data["status"] = "done" if result.success else "failed"
         data["step"] = result.steps_taken
-        data["usage"] = {
-            "input_tokens": result.usage.input_tokens,
-            "output_tokens": result.usage.output_tokens,
-            "cache_read_tokens": result.usage.cache_read_tokens,
-            "cache_creation_tokens": result.usage.cache_creation_tokens,
-        }
+        data["usage"] = usage_to_dict(result.usage)
+        data["usage_by_model"] = {model: usage_to_dict(usage) for model, usage in result.usage_by_model.items()}
         import tempfile, os
         fd, tmp_path = tempfile.mkstemp(dir=args.run_dir, suffix=".tmp")
         with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -362,13 +357,8 @@ def _cmd_show(session_id: str | None, use_last: bool, full: bool) -> None:
 
     # Calculate cost
     usage = session.usage
-    from llm_caller.pricing import estimate_cost
-    total_cost = estimate_cost(session.model, UsageStats(
-        input_tokens=usage.get("input_tokens", 0),
-        output_tokens=usage.get("output_tokens", 0),
-        cache_read_tokens=usage.get("cache_read_tokens", 0),
-        cache_creation_tokens=usage.get("cache_creation_tokens", 0),
-    ))
+    from llm_caller.pricing import estimate_total_cost
+    total_cost = estimate_total_cost(session_usage_by_model(session))
     cost_str = f" (~${total_cost:.3f})" if total_cost is not None else ""
 
     # Print summary
@@ -399,6 +389,12 @@ def _cmd_show(session_id: str | None, use_last: bool, full: bool) -> None:
     if usage.get('cache_creation_tokens'):
         console_output.console.print(f"  Cache creation: {usage.get('cache_creation_tokens', 0):,} tokens")
     console_output.console.print(f"  [bold yellow]Total cost:{cost_str}[/bold yellow]")
+    if session.usage_by_model:
+        from llm_caller.pricing import estimate_cost
+        for mdl, mdl_usage in session_usage_by_model(session).items():
+            mdl_cost = estimate_cost(mdl, mdl_usage)
+            mdl_cost_str = f" (~${mdl_cost:.3f})" if mdl_cost is not None else ""
+            console_output.console.print(f"    {mdl}: {mdl_usage.input_tokens:,} in / {mdl_usage.output_tokens:,} out{mdl_cost_str}")
 
     # Show conversation
     console_output.console.print(f"\n[bold]Conversation:[/bold] ({len(session.conversation)} messages)")
@@ -599,18 +595,12 @@ def main() -> None:
                 json.dump(data, f, indent=2, ensure_ascii=False)
             Path(tmp_path).replace(session_file)
             # Show final stats
-            from llm_caller.base import UsageStats
-            usage = UsageStats(
-                input_tokens=data["usage"]["input_tokens"],
-                output_tokens=data["usage"]["output_tokens"],
-                cache_read_tokens=data["usage"]["cache_read_tokens"],
-                cache_creation_tokens=data["usage"]["cache_creation_tokens"],
-            )
+            session = load_session(args.run_dir)
             console_output.result_fail(
                 "Interrupted by user",
-                data["step"],
-                usage,
-                data["model"],
+                session.step,
+                usage_from_dict(session.usage),
+                session_usage_by_model(session),
             )
         sys.exit(130)  # Standard exit code for Ctrl+C
     except Exception as e:
@@ -623,9 +613,9 @@ def main() -> None:
     _save_final_status(args, result)
 
     if result.success:
-        console_output.result_success(result.summary, result.steps_taken, result.usage, result.model, result.usage_by_model)
+        console_output.result_success(result.summary, result.steps_taken, result.usage, result.usage_by_model)
     else:
-        console_output.result_fail(result.summary, result.steps_taken, result.usage, result.model, result.usage_by_model)
+        console_output.result_fail(result.summary, result.steps_taken, result.usage, result.usage_by_model)
         sys.exit(1)
 
 

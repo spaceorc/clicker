@@ -97,3 +97,17 @@ def test_estimate_cost_claude_5_5():
     assert estimate_cost("claude-haiku-5-5", usage) == pytest.approx(0.735)
     # Sonnet 5.5: $2 / $10 / $0.10 / $2.50 per 1M
     assert estimate_cost("claude-sonnet-5-5", usage) == pytest.approx(14.60)
+
+
+@pytest.mark.unit
+def test_estimate_total_cost_prices_each_model_at_its_own_rate():
+    """Total cost is the sum over models, not all tokens at one model's price."""
+    from llm_caller.pricing import estimate_total_cost
+
+    usage_by_model = {
+        "claude-haiku-5-5": UsageStats(input_tokens=1_000_000),
+        "claude-sonnet-5-5": UsageStats(input_tokens=1_000_000),
+    }
+
+    assert estimate_total_cost(usage_by_model) == pytest.approx(0.10 + 2.0)
+    assert estimate_total_cost({**usage_by_model, "unknown-model": UsageStats(input_tokens=1)}) is None

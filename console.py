@@ -4,7 +4,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from llm_caller import UsageStats
-from llm_caller.pricing import estimate_cost
+from llm_caller.pricing import estimate_cost, estimate_total_cost
 
 console = Console()
 
@@ -43,8 +43,7 @@ def model_switch(from_model: str, to_model: str, reason: str) -> None:
     console.print(f"  [dim]{from_model}[/dim] → [bold bright_green]{to_model}[/bold bright_green]")
 
 
-def step_usage(usage: UsageStats, model: str = "", total_usage: UsageStats | None = None) -> None:
-    """Print compact per-step token usage and cumulative total."""
+def _format_tokens(usage: UsageStats) -> str:
     parts = [f"{usage.input_tokens} in", f"{usage.output_tokens} out"]
     cache_parts = []
     if usage.cache_read_tokens:
@@ -53,63 +52,33 @@ def step_usage(usage: UsageStats, model: str = "", total_usage: UsageStats | Non
         cache_parts.append(f"{usage.cache_creation_tokens} write")
     if cache_parts:
         parts.append(f"cache: {', '.join(cache_parts)}")
-    cost = estimate_cost(model, usage) if model else None
-    console.print(f"  [dim]{' / '.join(parts)}{_format_cost(cost)}[/dim]")
-
-    if total_usage:
-        total_parts = [f"{total_usage.input_tokens} in", f"{total_usage.output_tokens} out"]
-        total_cache_parts = []
-        if total_usage.cache_read_tokens:
-            total_cache_parts.append(f"{total_usage.cache_read_tokens} read")
-        if total_usage.cache_creation_tokens:
-            total_cache_parts.append(f"{total_usage.cache_creation_tokens} write")
-        if total_cache_parts:
-            total_parts.append(f"cache: {', '.join(total_cache_parts)}")
-        total_cost = estimate_cost(model, total_usage) if model else None
-        console.print(f"  [bright_black]total: {' / '.join(total_parts)}{_format_cost(total_cost, bright=True)}[/bright_black]")
+    return " / ".join(parts)
 
 
-def _format_usage(usage: UsageStats, model: str = "", bright_cost: bool = False) -> str:
-    """Format usage stats for display in result panels."""
-    parts = [f"{usage.input_tokens} in", f"{usage.output_tokens} out"]
-    cache_parts = []
-    if usage.cache_read_tokens:
-        cache_parts.append(f"{usage.cache_read_tokens} read")
-    if usage.cache_creation_tokens:
-        cache_parts.append(f"{usage.cache_creation_tokens} write")
-    if cache_parts:
-        parts.append(f"cache: {', '.join(cache_parts)}")
-    cost = estimate_cost(model, usage) if model else None
-    return f"{' / '.join(parts)}{_format_cost(cost, bright=bright_cost)}"
+def step_usage(usage: UsageStats, model: str, total_usage: UsageStats, usage_by_model: dict[str, UsageStats]) -> None:
+    """Print compact per-step token usage and cumulative total (each model priced at its own rate)."""
+    console.print(f"  [dim]{_format_tokens(usage)}{_format_cost(estimate_cost(model, usage))}[/dim]")
+    total_cost = estimate_total_cost(usage_by_model)
+    console.print(f"  [bright_black]total: {_format_tokens(total_usage)}{_format_cost(total_cost, bright=True)}[/bright_black]")
 
 
-def result_success(summary: str, steps: int, usage: UsageStats | None = None, model: str = "", usage_by_model: dict[str, UsageStats] | None = None) -> None:
-    usage_line = f"\n[white]tokens: {_format_usage(usage, model, bright_cost=True)}[/white]" if usage else ""
+def _format_result_usage(usage: UsageStats, usage_by_model: dict[str, UsageStats]) -> str:
+    """Format total usage with cost summed over models, plus a per-model breakdown if several were used."""
+    line = f"\n[white]tokens: {_format_tokens(usage)}{_format_cost(estimate_total_cost(usage_by_model), bright=True)}[/white]"
+    if len(usage_by_model) > 1:
+        breakdown_lines = [
+            f"  {mdl}: {_format_tokens(mdl_usage)}{_format_cost(estimate_cost(mdl, mdl_usage))}"
+            for mdl, mdl_usage in usage_by_model.items()
+        ]
+        line += f"\n[dim]{chr(10).join(breakdown_lines)}[/dim]"
+    return line
 
-    # Add per-model breakdown if multiple models were used
-    if usage_by_model and len(usage_by_model) > 1:
-        from llm_caller.pricing import estimate_cost
-        breakdown_lines = []
-        for mdl, mdl_usage in usage_by_model.items():
-            cost = estimate_cost(mdl, mdl_usage)
-            cost_str = f" (~${cost:.2f})" if cost is not None else ""
-            breakdown_lines.append(f"  {mdl}: {mdl_usage.input_tokens} in / {mdl_usage.output_tokens} out{cost_str}")
-        usage_line += f"\n[dim]{chr(10).join(breakdown_lines)}[/dim]"
 
+def result_success(summary: str, steps: int, usage: UsageStats, usage_by_model: dict[str, UsageStats]) -> None:
+    usage_line = _format_result_usage(usage, usage_by_model)
     console.print(Panel(f"{summary}\n[dim]{steps} steps[/dim]{usage_line}", title="Done", border_style="green"))
 
 
-def result_fail(summary: str, steps: int, usage: UsageStats | None = None, model: str = "", usage_by_model: dict[str, UsageStats] | None = None) -> None:
-    usage_line = f"\n[white]tokens: {_format_usage(usage, model, bright_cost=True)}[/white]" if usage else ""
-
-    # Add per-model breakdown if multiple models were used
-    if usage_by_model and len(usage_by_model) > 1:
-        from llm_caller.pricing import estimate_cost
-        breakdown_lines = []
-        for mdl, mdl_usage in usage_by_model.items():
-            cost = estimate_cost(mdl, mdl_usage)
-            cost_str = f" (~${cost:.2f})" if cost is not None else ""
-            breakdown_lines.append(f"  {mdl}: {mdl_usage.input_tokens} in / {mdl_usage.output_tokens} out{cost_str}")
-        usage_line += f"\n[dim]{chr(10).join(breakdown_lines)}[/dim]"
-
+def result_fail(summary: str, steps: int, usage: UsageStats, usage_by_model: dict[str, UsageStats]) -> None:
+    usage_line = _format_result_usage(usage, usage_by_model)
     console.print(Panel(f"{summary}\n[dim]{steps} steps[/dim]{usage_line}", title="Failed", border_style="red"))

@@ -380,3 +380,32 @@ def test_load_last_session_invalid_path(tmp_path, monkeypatch):
 
     with pytest.raises(FileNotFoundError, match="Last session not found"):
         load_last_session()
+
+
+@pytest.mark.unit
+def test_usage_by_model_roundtrip_and_legacy_fallback(tmp_path):
+    """Per-model usage survives save/load/resume; old sessions count everything as the primary model."""
+    from session import session_usage_by_model
+
+    session_dir = tmp_path / "s"
+    session_dir.mkdir()
+    state = SessionState(
+        version=1, status="in_progress", url="u", last_url="u", scenario="s",
+        model="anthropic_vertex/claude-haiku-5-5", viewport={"width": 1, "height": 1},
+        headless=True, pause=False, max_steps=0, step=2, elapsed_seconds=1.0,
+        screenshot_counts={}, screenshot_warnings={}, conversation=[],
+        usage={"input_tokens": 30, "output_tokens": 3},
+        usage_by_model={"claude-haiku-5-5": {"input_tokens": 10, "output_tokens": 1},
+                        "claude-sonnet-5-5": {"input_tokens": 20, "output_tokens": 2}},
+    )
+    save_session(session_dir, state)
+    loaded = load_session(session_dir)
+
+    resume = build_resume_state(loaded)
+    assert resume.usage_by_model["claude-sonnet-5-5"].input_tokens == 20
+    assert resume.usage_by_model["claude-haiku-5-5"].output_tokens == 1
+
+    loaded.usage_by_model = {}
+    legacy = session_usage_by_model(loaded)
+    assert list(legacy) == ["claude-haiku-5-5"]
+    assert legacy["claude-haiku-5-5"].input_tokens == 30

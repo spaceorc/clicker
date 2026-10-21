@@ -209,7 +209,7 @@ async def run_agent(
         using_fallback = True
 
     # Track usage separately by model
-    usage_by_model: dict[str, UsageStats] = {}
+    usage_by_model: dict[str, UsageStats] = dict(resume.usage_by_model) if resume else {}
 
     # Track last screenshot hash to detect when we've unstuck
     last_screenshot_hash: str | None = None
@@ -352,7 +352,7 @@ async def run_agent(
                 usage_by_model[llm.model] = UsageStats()
             usage_by_model[llm.model] += step_usage
 
-            console_output.step_usage(step_usage, llm.model, total_usage)
+            console_output.step_usage(step_usage, llm.model, total_usage, usage_by_model)
 
             if not isinstance(response, AgentResponse):
                 logger.error("Unexpected response type: %s", type(response))
@@ -408,7 +408,7 @@ async def run_agent(
                         step=step, elapsed_seconds=time.monotonic() - start_time,
                         screenshot_counts=screenshot_counts, screenshot_warnings=screenshot_warnings,
                         conversation=conversation, last_url=current_url, usage=total_usage,
-                        use_smart_model=smart_mode_requested,
+                        use_smart_model=smart_mode_requested, usage_by_model=usage_by_model,
                     ))
                 return AgentResult(success=True, summary=response.action.summary, steps_taken=step, usage=total_usage, model=llm.model, usage_by_model=usage_by_model, final_url=current_url)
 
@@ -419,7 +419,7 @@ async def run_agent(
                         step=step, elapsed_seconds=time.monotonic() - start_time,
                         screenshot_counts=screenshot_counts, screenshot_warnings=screenshot_warnings,
                         conversation=conversation, last_url=current_url, usage=total_usage,
-                        use_smart_model=smart_mode_requested,
+                        use_smart_model=smart_mode_requested, usage_by_model=usage_by_model,
                     ))
                 return AgentResult(success=False, summary=response.action.reason, steps_taken=step, usage=total_usage, model=llm.model, usage_by_model=usage_by_model, final_url=current_url)
 
@@ -434,7 +434,7 @@ async def run_agent(
                     step=step, elapsed_seconds=time.monotonic() - start_time,
                     screenshot_counts=screenshot_counts, screenshot_warnings=screenshot_warnings,
                     conversation=conversation, last_url=await browser.current_url(), usage=total_usage,
-                    use_smart_model=smart_mode_requested,
+                    use_smart_model=smart_mode_requested, usage_by_model=usage_by_model,
                 ))
     except (KeyboardInterrupt, asyncio.CancelledError):
         logger.info("Agent interrupted by user")
@@ -445,6 +445,6 @@ async def run_agent(
                 step=step, elapsed_seconds=time.monotonic() - start_time,
                 screenshot_counts=screenshot_counts, screenshot_warnings=screenshot_warnings,
                 conversation=conversation, last_url=current_url, usage=total_usage,
-                use_smart_model=smart_mode_requested,
+                use_smart_model=smart_mode_requested, usage_by_model=usage_by_model,
             ))
         raise

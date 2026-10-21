@@ -58,6 +58,7 @@ class SessionState:
     use_smart_model: bool = False  # If true, use fallback (smart) model until the agent switches back
     user_data_dir: str | None = None  # Browser profile directory for persistent sessions
     timeout_minutes: int = DEFAULT_TIMEOUT_MINUTES  # Total time limit for the agent, 0 = unlimited
+    usage_by_model: dict[str, dict[str, int]] = field(default_factory=dict)  # Usage per model (without provider)
 
 
 @dataclass
@@ -72,6 +73,33 @@ class ResumeState:
     last_url: str
     usage: UsageStats
     use_smart_model: bool = False
+    usage_by_model: dict[str, UsageStats] = field(default_factory=dict)
+
+
+def usage_to_dict(usage: UsageStats) -> dict[str, int]:
+    return {
+        "input_tokens": usage.input_tokens,
+        "output_tokens": usage.output_tokens,
+        "cache_read_tokens": usage.cache_read_tokens,
+        "cache_creation_tokens": usage.cache_creation_tokens,
+    }
+
+
+def usage_from_dict(data: dict[str, int]) -> UsageStats:
+    return UsageStats(
+        input_tokens=data.get("input_tokens", 0),
+        output_tokens=data.get("output_tokens", 0),
+        cache_read_tokens=data.get("cache_read_tokens", 0),
+        cache_creation_tokens=data.get("cache_creation_tokens", 0),
+    )
+
+
+def session_usage_by_model(session: "SessionState") -> dict[str, UsageStats]:
+    """Usage per model; sessions saved before it was tracked count everything as the primary model."""
+    if session.usage_by_model:
+        return {model: usage_from_dict(usage) for model, usage in session.usage_by_model.items()}
+    model = session.model.split("/", 1)[-1]
+    return {model: usage_from_dict(session.usage)} if session.usage else {}
 
 
 def serialize_conversation(conversation: list[ConversationMessage]) -> list[dict[str, Any]]:
@@ -121,6 +149,7 @@ def save_session(session_dir: Path, state: SessionState) -> None:
         "screenshot_warnings": state.screenshot_warnings,
         "conversation": state.conversation,
         "usage": state.usage,
+        "usage_by_model": state.usage_by_model,
     }
 
     session_file = session_dir / "session.json"
@@ -170,6 +199,7 @@ def load_session(session_dir: Path) -> SessionState:
         use_smart_model=data.get("use_smart_model", False),
         user_data_dir=data.get("user_data_dir"),
         timeout_minutes=data.get("timeout_minutes", DEFAULT_TIMEOUT_MINUTES),
+        usage_by_model=data.get("usage_by_model", {}),
     )
 
 
@@ -204,13 +234,7 @@ def find_latest_session() -> Path:
 def build_resume_state(session: SessionState) -> ResumeState:
     """Build a ResumeState from a loaded SessionState."""
     conversation = deserialize_conversation(session.conversation)
-    usage_data = session.usage
-    usage = UsageStats(
-        input_tokens=usage_data.get("input_tokens", 0),
-        output_tokens=usage_data.get("output_tokens", 0),
-        cache_read_tokens=usage_data.get("cache_read_tokens", 0),
-        cache_creation_tokens=usage_data.get("cache_creation_tokens", 0),
-    )
+    usage = usage_from_dict(session.usage)
     return ResumeState(
         step=session.step,
         elapsed_seconds=session.elapsed_seconds,
@@ -220,6 +244,7 @@ def build_resume_state(session: SessionState) -> ResumeState:
         last_url=session.last_url,
         usage=usage,
         use_smart_model=session.use_smart_model,
+        usage_by_model=session_usage_by_model(session),
     )
 
 
