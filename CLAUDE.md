@@ -21,11 +21,15 @@ uv run python main.py list                    # List all sessions
 uv run python main.py show <session_id>       # Show session details
 uv run python main.py show --last             # Show last session
 uv run python main.py show <id> --full        # Show with full conversation
+uv run python main.py cost [-n N] [--match TEXT]  # Cost of recent sessions with running total
 
 # Makefile shortcuts (still available)
 make run-visible URL="..." SCENARIO="..."     # Run with visible browser
 make run-pause URL="..." SCENARIO="..."       # Run with pause for manual login
+make cost LIMIT=10 MATCH="..."               # Cost report
 ```
+
+Every new CLI option or command must also be exposed in the Makefile (as a variable passed to the relevant targets, or a new target).
 
 ## Architecture
 

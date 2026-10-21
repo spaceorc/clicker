@@ -25,6 +25,7 @@ from session import (
     save_session,
     serialize_conversation,
     session_usage_by_model,
+    session_usage_by_model_with_source,
     usage_from_dict,
     usage_to_dict,
 )
@@ -114,6 +115,21 @@ def _parse_args() -> argparse.Namespace:
 
     # === LIST command ===
     list_parser = subparsers.add_parser("list", help="List all sessions")
+
+    # === COST command ===
+    cost_parser = subparsers.add_parser("cost", help="Show cost of recent sessions with a running total")
+    cost_parser.add_argument(
+        "-n", "--limit",
+        type=int,
+        default=20,
+        help="Number of most recent sessions to show (default: 20, 0 = all)",
+    )
+    cost_parser.add_argument(
+        "--match",
+        metavar="TEXT",
+        default=None,
+        help="Only sessions whose URL, scenario or name contains TEXT (case-insensitive)",
+    )
 
     # === SHOW command ===
     show_parser = subparsers.add_parser("show", help="Show session details")
@@ -324,6 +340,90 @@ def _cmd_list() -> None:
     console_output.console.print(table)
 
 
+def _cmd_cost(limit: int, match: str | None) -> None:
+    """Show cost of recent sessions, newest first, with a running total."""
+    from datetime import datetime
+
+    from rich.table import Table
+
+    from llm_caller.pricing import estimate_total_cost
+
+    sessions_dir = get_sessions_dir()
+    sessions: list[tuple[str, float, SessionState]] = []
+    if sessions_dir.exists():
+        for session_dir in sessions_dir.iterdir():
+            session_file = session_dir / "session.json"
+            if not session_file.exists():
+                continue
+            try:
+                session = load_session(session_dir)
+            except Exception:
+                continue
+            if match and not any(match.lower() in text.lower() for text in (session_dir.name, session.url, session.scenario)):
+                continue
+            sessions.append((session_dir.name, session_file.stat().st_mtime, session))
+
+    if not sessions:
+        console_output.console.print("[yellow]No sessions found[/yellow]")
+        return
+
+    # Most recently active first
+    sessions.sort(key=lambda item: item[1], reverse=True)
+    if limit > 0:
+        sessions = sessions[:limit]
+
+    table = Table(title="Session costs")
+    table.add_column("Session ID", style="cyan", no_wrap=True)
+    table.add_column("Last active", style="white", no_wrap=True)
+    table.add_column("Status", style="white")
+    table.add_column("Steps", justify="right", style="white")
+    table.add_column("Models", style="dim")
+    table.add_column("Cost", justify="right", style="white")
+    table.add_column("Running total", justify="right", style="bold yellow")
+
+    status_colors = {"done": "green", "failed": "red", "in_progress": "yellow", "interrupted": "yellow"}
+    running_total = 0.0
+    unpriced = False
+    approximate = False
+    estimated_from_log = False
+    for session_id, mtime, session in sessions:
+        usage_by_model, source = session_usage_by_model_with_source(session, sessions_dir / session_id)
+        cost = estimate_total_cost(usage_by_model)
+        if cost is None:
+            unpriced = True
+            cost_text = "?"
+        else:
+            running_total += cost
+            cost_text = f"${cost:.2f}"
+        # Sessions saved before usage per model was tracked are estimated
+        if source == "log":
+            estimated_from_log = True
+            cost_text += "~"
+        elif source == "primary":
+            approximate = True
+            cost_text += "*"
+
+        status_color = status_colors.get(session.status, "white")
+        table.add_row(
+            session_id,
+            datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M"),
+            f"[{status_color}]{session.status}[/{status_color}]",
+            str(session.step),
+            ", ".join(usage_by_model) or "-",
+            cost_text,
+            f"${running_total:.2f}",
+        )
+
+    console_output.console.print(table)
+    console_output.console.print(f"[bold]Total for {len(sessions)} sessions:[/bold] [bold yellow]~${running_total:.2f}[/bold yellow]")
+    if estimated_from_log:
+        console_output.console.print("[dim]~ estimate: usage per model was not saved for this session, so its total is split between models by their number of calls in log.txt[/dim]")
+    if approximate:
+        console_output.console.print("[dim]* usage per model was not saved for this session; all of it is priced as the primary model, which underestimates runs that used the fallback model[/dim]")
+    if unpriced:
+        console_output.console.print("[dim]? no pricing for some model of this session; not included in the total[/dim]")
+
+
 def _cmd_show(session_id: str | None, use_last: bool, full: bool) -> None:
     """Show detailed session info."""
     # Resolve session
@@ -458,6 +558,10 @@ def main() -> None:
     # Handle different commands
     if args.command == "list":
         _cmd_list()
+        return
+
+    if args.command == "cost":
+        _cmd_cost(args.limit, args.match)
         return
 
     if args.command == "show":

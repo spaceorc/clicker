@@ -409,3 +409,36 @@ def test_usage_by_model_roundtrip_and_legacy_fallback(tmp_path):
     legacy = session_usage_by_model(loaded)
     assert list(legacy) == ["claude-haiku-5-5"]
     assert legacy["claude-haiku-5-5"].input_tokens == 30
+
+
+@pytest.mark.unit
+def test_legacy_usage_split_by_calls_in_log(tmp_path):
+    """Old sessions without usage per model split the total by the number of calls per model in log.txt."""
+    from session import session_usage_by_model_with_source
+
+    session_dir = tmp_path / "s"
+    session_dir.mkdir()
+    url = "https://aiplatform.googleapis.com/v1/projects/p/locations/global/publishers/anthropic/models"
+    (session_dir / "log.txt").write_text(
+        f'POST {url}/claude-haiku-5-5:rawPredict "HTTP/1.1 200 OK"\n'
+        + f'POST {url}/claude-sonnet-5-5:rawPredict "HTTP/1.1 200 OK"\n' * 3
+    )
+    session = SessionState(
+        version=1, status="done", url="u", last_url="u", scenario="s",
+        model="anthropic_vertex/claude-haiku-5-5", viewport={"width": 1, "height": 1},
+        headless=True, pause=False, max_steps=0, step=4, elapsed_seconds=1.0,
+        screenshot_counts={}, screenshot_warnings={}, conversation=[],
+        usage={"input_tokens": 1000, "output_tokens": 101},
+    )
+
+    usage_by_model, source = session_usage_by_model_with_source(session, session_dir)
+
+    assert source == "log"
+    assert usage_by_model["claude-haiku-5-5"].input_tokens == 250
+    assert usage_by_model["claude-sonnet-5-5"].input_tokens == 750
+    assert sum(u.output_tokens for u in usage_by_model.values()) == 101
+
+    (session_dir / "log.txt").write_text("no calls here\n")
+    usage_by_model, source = session_usage_by_model_with_source(session, session_dir)
+    assert source == "primary"
+    assert usage_by_model["claude-haiku-5-5"].input_tokens == 1000

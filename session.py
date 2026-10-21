@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 import tempfile
 from collections import Counter
 from dataclasses import dataclass, field
@@ -94,12 +95,66 @@ def usage_from_dict(data: dict[str, int]) -> UsageStats:
     )
 
 
+UsageSource = Literal["saved", "log", "primary"]
+
+# Vertex request URLs in log.txt name the model of each LLM call
+_LOG_MODEL_CALL = re.compile(r"/models/([^/:\s]+):(?:stream)?[rR]awPredict")
+
+
 def session_usage_by_model(session: "SessionState") -> dict[str, UsageStats]:
     """Usage per model; sessions saved before it was tracked count everything as the primary model."""
+    return session_usage_by_model_with_source(session)[0]
+
+
+def session_usage_by_model_with_source(
+    session: "SessionState", session_dir: Path | None = None
+) -> tuple[dict[str, UsageStats], UsageSource]:
+    """Usage per model and where it comes from.
+
+    Sessions saved before usage per model was tracked have only the total. If their log.txt
+    names the model of each call, the total is split between models by their number of calls
+    ("log"); otherwise all of it is counted as the primary model ("primary").
+    """
     if session.usage_by_model:
-        return {model: usage_from_dict(usage) for model, usage in session.usage_by_model.items()}
-    model = session.model.split("/", 1)[-1]
-    return {model: usage_from_dict(session.usage)} if session.usage else {}
+        return {model: usage_from_dict(usage) for model, usage in session.usage_by_model.items()}, "saved"
+    if not session.usage:
+        return {}, "saved"
+
+    total = usage_from_dict(session.usage)
+    log_file = session_dir / "log.txt" if session_dir else None
+    if log_file is not None and log_file.exists():
+        calls = Counter(_LOG_MODEL_CALL.findall(log_file.read_text(encoding="utf-8", errors="replace")))
+        if calls:
+            return _split_usage(total, calls), "log"
+
+    return {session.model.split("/", 1)[-1]: total}, "primary"
+
+
+def _split_usage(total: UsageStats, calls: Counter[str]) -> dict[str, UsageStats]:
+    """Split total usage between models in proportion to their number of calls."""
+    total_calls = sum(calls.values())
+    result: dict[str, UsageStats] = {}
+    remaining = UsageStats(total.input_tokens, total.output_tokens, total.cache_read_tokens, total.cache_creation_tokens)
+    models = list(calls)
+    for i, model in enumerate(models):
+        if i == len(models) - 1:
+            result[model] = remaining
+            break
+        share = calls[model] / total_calls
+        part = UsageStats(
+            input_tokens=round(total.input_tokens * share),
+            output_tokens=round(total.output_tokens * share),
+            cache_read_tokens=round(total.cache_read_tokens * share),
+            cache_creation_tokens=round(total.cache_creation_tokens * share),
+        )
+        result[model] = part
+        remaining = UsageStats(
+            remaining.input_tokens - part.input_tokens,
+            remaining.output_tokens - part.output_tokens,
+            remaining.cache_read_tokens - part.cache_read_tokens,
+            remaining.cache_creation_tokens - part.cache_creation_tokens,
+        )
+    return result
 
 
 def serialize_conversation(conversation: list[ConversationMessage]) -> list[dict[str, Any]]:

@@ -1,4 +1,4 @@
-.PHONY: install run run-visible run-pause resume resume-last list show test test-integration help
+.PHONY: install run run-visible run-pause resume resume-last list show cost test test-integration help
 
 URL ?=
 SCENARIO ?=
@@ -8,6 +8,8 @@ DEBUG ?= 0
 VERBOSE ?= 0
 USER_DATA_DIR ?=
 TIMEOUT ?=
+LIMIT ?= 20
+MATCH ?=
 
 ifneq ($(filter 1,$(DEBUG) $(VERBOSE)),)
     VERBOSE_FLAG = -v
@@ -25,6 +27,12 @@ ifneq ($(TIMEOUT),)
     TIMEOUT_FLAG = --timeout $(TIMEOUT)
 else
     TIMEOUT_FLAG =
+endif
+
+ifneq ($(MATCH),)
+    MATCH_FLAG = --match "$(MATCH)"
+else
+    MATCH_FLAG =
 endif
 
 ifneq ($(SESSION),)
@@ -57,6 +65,9 @@ list:
 
 show:
 	uv run python main.py show "$(SESSION)"
+
+cost:
+	uv run python main.py cost --limit $(LIMIT) $(MATCH_FLAG)
 
 test:
 	uv run pytest -m "not integration" -v -n auto

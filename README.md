@@ -163,6 +163,11 @@ clicker list                              # List all sessions with status
 clicker show --last                       # Show last session details
 clicker show 2026-02-13_14-30-00          # Show specific session
 clicker show my-experiment --full         # Show with full conversation
+
+# Cost of recent sessions with a running total
+clicker cost                              # 20 most recently active sessions
+clicker cost -n 0 --match astute          # All sessions whose URL/scenario/name contains "astute"
+make cost LIMIT=10 MATCH=astute
 ```
 
 ### CLI options for `run` command
