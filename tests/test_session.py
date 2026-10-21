@@ -110,6 +110,7 @@ def test_save_and_load_session(tmp_path):
         headless=True,
         pause=False,
         max_steps=10,
+        timeout_minutes=120,
         step=3,
         elapsed_seconds=45.5,
         screenshot_counts={"abc123": 2, "def456": 1},
@@ -140,6 +141,7 @@ def test_save_and_load_session(tmp_path):
     assert loaded.model == state.model
     assert loaded.fallback_model == state.fallback_model
     assert loaded.use_smart_model == state.use_smart_model
+    assert loaded.timeout_minutes == 120
     assert loaded.step == state.step
     assert loaded.elapsed_seconds == state.elapsed_seconds
     assert loaded.screenshot_counts == state.screenshot_counts
@@ -290,6 +292,7 @@ def test_session_with_defaults(tmp_path):
     assert loaded.usage == {}  # default empty dict
     assert loaded.fallback_model is None  # default
     assert loaded.use_smart_model is False  # default
+    assert loaded.timeout_minutes == 30  # default for sessions saved before --timeout
 
 
 @pytest.mark.unit

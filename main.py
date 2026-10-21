@@ -14,6 +14,7 @@ from agent.loop import AgentResult, run_agent
 from browser.controller import BrowserController, ViewportSize
 from llm_caller.factory import parse_model_spec, get_llm_caller
 from session import (
+    DEFAULT_TIMEOUT_MINUTES,
     ResumeState,
     SessionState,
     build_resume_state,
@@ -66,6 +67,13 @@ def _parse_args() -> argparse.Namespace:
         help="Maximum number of agent steps (default: 0 = unlimited)",
     )
     run_parser.add_argument(
+        "--timeout",
+        metavar="MINUTES",
+        type=int,
+        default=None,
+        help="Total time limit for the agent in minutes (default: 30, 0 = unlimited). Time spent in --pause is not counted.",
+    )
+    run_parser.add_argument(
         "--pause",
         action="store_true",
         help="Pause after opening the page so you can log in manually, then press Enter to start the agent",
@@ -92,6 +100,13 @@ def _parse_args() -> argparse.Namespace:
         "--no-headless",
         action="store_true",
         help="Run browser in visible (non-headless) mode",
+    )
+    resume_parser.add_argument(
+        "--timeout",
+        metavar="MINUTES",
+        type=int,
+        default=None,
+        help="Override the session's total time limit in minutes (0 = unlimited). Counts time already spent in the session.",
     )
 
     # === LIST command ===
@@ -128,6 +143,7 @@ def _make_step_callback(
     headless: bool,
     pause: bool,
     max_steps: int,
+    timeout_minutes: int,
     user_data_dir: str | None,
 ):
     """Create on_step_done callback that saves session state."""
@@ -146,6 +162,7 @@ def _make_step_callback(
             headless=headless,
             pause=pause,
             max_steps=max_steps,
+            timeout_minutes=timeout_minutes,
             step=state.step,
             elapsed_seconds=state.elapsed_seconds,
             screenshot_counts=dict(state.screenshot_counts),
@@ -212,6 +229,7 @@ async def _run(args: argparse.Namespace) -> AgentResult:
             headless=headless,
             pause=args.pause,
             max_steps=args.max_steps,
+            timeout_minutes=args.timeout,
             user_data_dir=args.user_data_dir,
         )
 
@@ -220,6 +238,7 @@ async def _run(args: argparse.Namespace) -> AgentResult:
             browser=browser,
             scenario=args.scenario,
             max_steps=args.max_steps,
+            timeout_seconds=args.timeout * 60,
             screenshots_dir=args.run_dir / "screenshots",
             on_step_done=on_step_done,
             resume=resume_state,
@@ -366,6 +385,7 @@ def _cmd_show(session_id: str | None, use_last: bool, full: bool) -> None:
         console_output.console.print(f"  Fallback: {session.fallback_model}")
     console_output.console.print(f"  Viewport: {session.viewport['width']}x{session.viewport['height']}")
     console_output.console.print(f"  Headless: {session.headless}")
+    console_output.console.print(f"  Timeout: {f'{session.timeout_minutes} min' if session.timeout_minutes else 'unlimited'}")
 
     console_output.console.print(f"\n[bold]Progress:[/bold]")
     console_output.console.print(f"  Steps: {session.step}")
@@ -518,6 +538,8 @@ def main() -> None:
         args.model = session.model
         args.fallback_model = session.fallback_model or "anthropic_vertex/claude-sonnet-5-5"
         args.max_steps = session.max_steps
+        if args.timeout is None:
+            args.timeout = session.timeout_minutes
         args.pause = session.pause
         args.user_data_dir = session.user_data_dir
         args.resume_state = build_resume_state(session)
@@ -527,7 +549,9 @@ def main() -> None:
         args.resume_state = None
         args.run_dir = session_dir
         args.run_dir.mkdir(parents=True, exist_ok=True)
-        # defaults are already set in argparse
+        if args.timeout is None:
+            args.timeout = DEFAULT_TIMEOUT_MINUTES
+        # other defaults are already set in argparse
 
     # Save this as the last session
     save_last_session(args.run_dir)
@@ -556,6 +580,7 @@ def main() -> None:
     console_output.console.print(f"[bold]Model:[/bold] {args.model}")
     if hasattr(args, 'fallback_model') and args.fallback_model:
         console_output.console.print(f"[bold]Fallback:[/bold] {args.fallback_model}")
+    console_output.console.print(f"[bold]Timeout:[/bold] {f'{args.timeout} min' if args.timeout else 'unlimited'}")
     console_output.console.print(f"[bold]Session:[/bold] {args.run_dir}")
 
     try:

@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 make install          # Install deps + Playwright chromium
 
 # Run automation
-uv run python main.py run <url> <scenario> [--model provider/model] [--no-headless] [--pause] [--max-steps N] [-v]
+uv run python main.py run <url> <scenario> [--model provider/model] [--no-headless] [--pause] [--max-steps N] [--timeout MINUTES] [-v]
 uv run python main.py run <url> <scenario> --session <name>  # Named session
 
 # Resume sessions

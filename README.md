@@ -175,6 +175,7 @@ clicker show my-experiment --full         # Show with full conversation
 | `--no-headless` | Show the browser window |
 | `--pause` | Pause after page load for manual login, press Enter to start |
 | `--max-steps N` | Limit agent steps (default: 0 = unlimited) |
+| `--timeout MINUTES` | Total time limit for the agent (default: 30, 0 = unlimited). Time spent in `--pause` is not counted. Also accepted by `resume` to override the session's limit; time already spent in the session counts toward it. |
 | `--user-data-dir DIR` | Browser profile directory (preserves cookies/sessions between runs) |
 | `-v` | Verbose (DEBUG) console logging |
 

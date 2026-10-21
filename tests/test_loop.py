@@ -71,3 +71,24 @@ async def test_model_switches_to_smart_and_back_to_fast():
     assert result.success
     assert [model for model, _ in calls] == ["fast-model", "smart-model", "smart-model", "fast-model"]
     assert [text.split("Active model: ")[1].split()[0] for _, text in calls] == ["fast", "smart", "smart", "fast"]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(("timeout_seconds", "success"), [(60, False), (0, True)])
+async def test_timeout_counts_time_spent_before_resume(timeout_seconds: int, success: bool):
+    """The time limit includes time already spent in the session; 0 means unlimited."""
+    from collections import Counter
+
+    from session import ResumeState
+
+    resume = ResumeState(
+        step=3, elapsed_seconds=120, screenshot_counts=Counter(), screenshot_warnings=Counter(),
+        conversation=[], last_url="https://example.com", usage=UsageStats(),
+    )
+    llm = FakeLlm("fast-model", [{"action": {"action": "done", "summary": "ok"}}], [])
+
+    result = await run_agent(llm, FakeBrowser(), "scenario", resume=resume, timeout_seconds=timeout_seconds)  # type: ignore[arg-type]
+
+    assert result.success is success
+    if not success:
+        assert result.summary.startswith("Timeout")

@@ -31,6 +31,7 @@ def get_sessions_dir() -> Path:
 _SESSIONS_DIR = get_sessions_dir()
 _LAST_SESSION_FILE = _SESSIONS_DIR / ".last_session"
 _SCREENSHOT_OMITTED = "[screenshot omitted]"
+DEFAULT_TIMEOUT_MINUTES = 30
 
 
 @dataclass
@@ -56,6 +57,7 @@ class SessionState:
     fallback_model: str | None = None
     use_smart_model: bool = False  # If true, use fallback (smart) model until the agent switches back
     user_data_dir: str | None = None  # Browser profile directory for persistent sessions
+    timeout_minutes: int = DEFAULT_TIMEOUT_MINUTES  # Total time limit for the agent, 0 = unlimited
 
 
 @dataclass
@@ -112,6 +114,7 @@ def save_session(session_dir: Path, state: SessionState) -> None:
         "headless": state.headless,
         "pause": state.pause,
         "max_steps": state.max_steps,
+        "timeout_minutes": state.timeout_minutes,
         "step": state.step,
         "elapsed_seconds": state.elapsed_seconds,
         "screenshot_counts": state.screenshot_counts,
@@ -166,6 +169,7 @@ def load_session(session_dir: Path) -> SessionState:
         fallback_model=data.get("fallback_model"),
         use_smart_model=data.get("use_smart_model", False),
         user_data_dir=data.get("user_data_dir"),
+        timeout_minutes=data.get("timeout_minutes", DEFAULT_TIMEOUT_MINUTES),
     )
 
 

@@ -51,7 +51,6 @@ _POST_ACTION_DELAY_MS = 2000
 _COMPRESS_THRESHOLD = 50  # compress when conversation reaches this many messages
 _COMPRESS_KEEP_RECENT = 10  # keep this many recent messages after compression
 _STUCK_SCREENSHOT_LIMIT = 5  # same screenshot seen this many times = stuck
-_TIMEOUT_SECONDS = 30 * 60  # 30 minutes total
 
 
 async def _execute_action(browser: BrowserController, action: AgentResponse) -> str | None:
@@ -145,6 +144,7 @@ async def run_agent(
     on_step_done: Callable[[ResumeState], None] | None = None,
     resume: ResumeState | None = None,
     fallback_llm: LlmCaller | None = None,
+    timeout_seconds: int = 30 * 60,
 ) -> AgentResult:
     """Run the agent loop.
 
@@ -159,6 +159,7 @@ async def run_agent(
         on_step_done: Callback invoked after each step with current state snapshot
         resume: If provided, resume from this state instead of starting fresh
         fallback_llm: Optional fallback LLM to use when primary model gets stuck
+        timeout_seconds: Total time limit, counting time spent before a resume (0 = unlimited)
 
     Returns:
         AgentResult with success status, summary, steps taken, and usage
@@ -227,7 +228,7 @@ async def run_agent(
                 return AgentResult(success=False, summary=f"Max steps ({max_steps}) exceeded", steps_taken=step - 1, usage=total_usage, model=llm.model, usage_by_model=usage_by_model, final_url=final_url)
 
             elapsed = time.monotonic() - start_time
-            if elapsed > _TIMEOUT_SECONDS:
+            if timeout_seconds > 0 and elapsed > timeout_seconds:
                 logger.warning("Timeout after %.0f seconds", elapsed)
                 final_url = await browser.current_url()
                 return AgentResult(success=False, summary=f"Timeout after {int(elapsed)}s", steps_taken=step - 1, usage=total_usage, model=llm.model, usage_by_model=usage_by_model, final_url=final_url)
