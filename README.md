@@ -61,7 +61,7 @@ cat > ~/.clicker/config.env <<'EOF'
 # Google Vertex AI (for Anthropic via Vertex and Gemini)
 VERTEX_CREDENTIALS=<base64-encoded-service-account-json>
 VERTEX_PROJECT_NAME=my-project
-VERTEX_LOCATION=europe-west1
+VERTEX_LOCATION=europe-west1  # Claude 5.5 models always go to the global endpoint
 
 # OpenAI (optional)
 OPENAI_API_KEY=sk-...
@@ -141,8 +141,8 @@ clicker run "https://myapp.com" "Navigate to settings" --pause --no-headless
 
 # Using specific models
 clicker run "https://example.com" "Click the link" \
-  --model anthropic_vertex/claude-haiku-4-5@20251001 \
-  --fallback-model anthropic_vertex/claude-sonnet-4-5@20250929
+  --model anthropic_vertex/claude-haiku-5-5 \
+  --fallback-model anthropic_vertex/claude-sonnet-5-5
 
 # Named session
 clicker run "https://example.com" "Complete task" --session my-experiment
@@ -169,8 +169,8 @@ clicker show my-experiment --full         # Show with full conversation
 
 | Flag | Description |
 |------|-------------|
-| `--model provider/model` | Primary LLM to use (default: `anthropic_vertex/claude-haiku-4-5@20251001`) |
-| `--fallback-model provider/model` | Fallback LLM for stuck situations or critical tasks (default: `anthropic_vertex/claude-sonnet-4-5@20250929`) |
+| `--model provider/model` | Primary LLM to use (default: `anthropic_vertex/claude-haiku-5-5`) |
+| `--fallback-model provider/model` | Fallback LLM for stuck situations or critical tasks (default: `anthropic_vertex/claude-sonnet-5-5`) |
 | `--session NAME` | Named session (saved in sessions/<name>). If exists, resumes it. If not, creates new session with this name. |
 | `--no-headless` | Show the browser window |
 | `--pause` | Pause after page load for manual login, press Enter to start |
@@ -184,15 +184,15 @@ clicker show my-experiment --full         # Show with full conversation
 
 | Provider | Model spec example | Cost (input/output per 1M tokens) |
 |----------|-------------------|----------------------------------|
-| Anthropic (via Vertex AI) | `anthropic_vertex/claude-haiku-4-5@20251001` | $1 / $5 |
-| Anthropic (via Vertex AI) | `anthropic_vertex/claude-sonnet-4-5@20250929` | $3 / $15 |
+| Anthropic (via Vertex AI) | `anthropic_vertex/claude-haiku-5-5` | $0.10 / $0.50 |
+| Anthropic (via Vertex AI) | `anthropic_vertex/claude-sonnet-5-5` | $2 / $10 |
 | Google Gemini (via Vertex AI) | `google_vertex/gemini-2.5-flash-lite` | $0.10 / $0.40 |
 | Google Gemini (via Vertex AI) | `google_vertex/gemini-2.5-flash` | $0.30 / $1.20 |
 | OpenAI | `openai/gpt-4o` | $2.50 / $10 |
 
 **Recommended setup for cost optimization:**
-- Primary: `anthropic_vertex/claude-haiku-4-5@20251001` (cheap, good quality)
-- Fallback: `anthropic_vertex/claude-sonnet-4-5@20250929` (expensive, excellent reasoning)
+- Primary: `anthropic_vertex/claude-haiku-5-5` (cheap, good quality)
+- Fallback: `anthropic_vertex/claude-sonnet-5-5` (expensive, excellent reasoning)
 
 This configuration starts cheap and only uses expensive models when truly needed.
 
@@ -223,13 +223,13 @@ When the same screenshot appears 5+ times, the system:
 4. Switches back to primary model when screenshot changes (progress made)
 
 ### Smart mode (critical tasks)
-The model can request permanent upgrade to the expensive model by setting `request_smart_model: true`. Use cases:
+The model can switch to the expensive model by setting `switch_model: "smart"`. Use cases:
 - Answering test questions or solving complex problems (math, logic, comprehension)
 - After multiple failures requiring better reasoning
 - Deep understanding tasks (quiz content, complex forms)
 - When test progress indicators are visible ("Question 5 of 20", "75% complete")
 
-Once smart mode is activated, the session permanently uses the expensive model and won't auto-switch back.
+Smart mode stays on (and survives resume) until the model switches back with `switch_model: "fast"`, e.g. when the critical part is over and the remaining steps are routine. Each step tells the model which one is active. `"fast"` also ends a stuck-detection fallback early.
 
 ## Available actions
 

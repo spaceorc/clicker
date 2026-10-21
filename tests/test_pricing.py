@@ -81,3 +81,19 @@ def test_estimate_cost_zero_tokens():
     cost = estimate_cost("claude-haiku-4-5", usage)
 
     assert cost == 0.0
+
+
+@pytest.mark.unit
+def test_estimate_cost_claude_5_5():
+    """Test cost calculation for Claude 5.5 models."""
+    usage = UsageStats(
+        input_tokens=1_000_000,
+        output_tokens=1_000_000,
+        cache_read_tokens=1_000_000,
+        cache_creation_tokens=1_000_000,
+    )
+
+    # Haiku 5.5: $0.10 / $0.50 / $0.01 / $0.125 per 1M
+    assert estimate_cost("claude-haiku-5-5", usage) == pytest.approx(0.735)
+    # Sonnet 5.5: $2 / $10 / $0.10 / $2.50 per 1M
+    assert estimate_cost("claude-sonnet-5-5", usage) == pytest.approx(14.60)

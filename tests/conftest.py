@@ -20,7 +20,7 @@ async def browser():
 @pytest.fixture
 def llm():
     """Provide default LLM caller (Haiku for cost optimization)."""
-    return get_llm_caller("anthropic_vertex", "claude-haiku-4-5@20251001")
+    return get_llm_caller("anthropic_vertex", "claude-haiku-5-5")
 
 
 @pytest.fixture

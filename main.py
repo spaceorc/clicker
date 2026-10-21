@@ -46,13 +46,13 @@ def _parse_args() -> argparse.Namespace:
     run_parser.add_argument("scenario", help="Scenario/goal to accomplish")
     run_parser.add_argument(
         "--model",
-        default="anthropic_vertex/claude-haiku-4-5@20251001",
-        help="LLM model in provider/model format (default: anthropic_vertex/claude-haiku-4-5@20251001)",
+        default="anthropic_vertex/claude-haiku-5-5",
+        help="LLM model in provider/model format (default: anthropic_vertex/claude-haiku-5-5)",
     )
     run_parser.add_argument(
         "--fallback-model",
-        default="anthropic_vertex/claude-sonnet-4-5@20250929",
-        help="Fallback to this model if primary model gets stuck or fails (default: anthropic_vertex/claude-sonnet-4-5@20250929)",
+        default="anthropic_vertex/claude-sonnet-5-5",
+        help="Fallback to this model if primary model gets stuck or fails (default: anthropic_vertex/claude-sonnet-5-5)",
     )
     run_parser.add_argument(
         "--no-headless",
@@ -516,7 +516,7 @@ def main() -> None:
         args.url = session.url
         args.scenario = session.scenario
         args.model = session.model
-        args.fallback_model = session.fallback_model or "anthropic_vertex/claude-sonnet-4-5@20250929"
+        args.fallback_model = session.fallback_model or "anthropic_vertex/claude-sonnet-5-5"
         args.max_steps = session.max_steps
         args.pause = session.pause
         args.user_data_dir = session.user_data_dir

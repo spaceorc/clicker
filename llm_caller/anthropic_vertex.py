@@ -48,8 +48,11 @@ Do not include markdown code blocks - respond with raw JSON only.
 """
 
 
-# Singleton instance of Anthropic client
-_anthropic_client: AsyncAnthropicVertex | None = None
+# Anthropic clients by Vertex location
+_anthropic_clients: dict[str, AsyncAnthropicVertex] = {}
+
+# Models Vertex serves only on the global endpoint (with our project a regional location answers 404)
+_GLOBAL_ONLY_MODELS = ("claude-sonnet-5-5", "claude-haiku-5-5")
 
 
 def _create_google_credentials() -> service_account.Credentials:
@@ -78,29 +81,36 @@ def _create_google_credentials() -> service_account.Credentials:
     )
 
 
-def _get_anthropic_client() -> AsyncAnthropicVertex:
-    """Get or create Anthropic Vertex AI client singleton."""
-    global _anthropic_client
+def _get_location(model: str) -> str:
+    """Get the Vertex location to call the model in."""
+    if model.split("@", 1)[0] in _GLOBAL_ONLY_MODELS:
+        return "global"
 
-    if _anthropic_client is None:
+    vertex_location = os.environ.get("VERTEX_LOCATION")
+    if not vertex_location:
+        raise ValueError("VERTEX_LOCATION environment variable is not set")
+    return vertex_location
+
+
+def _get_anthropic_client(model: str) -> AsyncAnthropicVertex:
+    """Get or create Anthropic Vertex AI client for the model's location."""
+    location = _get_location(model)
+
+    if location not in _anthropic_clients:
         vertex_project_name = os.environ.get("VERTEX_PROJECT_NAME")
-        vertex_location = os.environ.get("VERTEX_LOCATION")
-
         if not vertex_project_name:
             raise ValueError("VERTEX_PROJECT_NAME environment variable is not set")
-        if not vertex_location:
-            raise ValueError("VERTEX_LOCATION environment variable is not set")
 
         # Create credentials in-memory
         credentials = _create_google_credentials()
 
-        _anthropic_client = AsyncAnthropicVertex(
-            region=vertex_location,
+        _anthropic_clients[location] = AsyncAnthropicVertex(
+            region=location,
             project_id=vertex_project_name,
             credentials=credentials,
         )
 
-    return _anthropic_client
+    return _anthropic_clients[location]
 
 
 class AnthropicVertexLlmCaller(LlmCaller):
@@ -172,7 +182,7 @@ class AnthropicVertexLlmCaller(LlmCaller):
         json_schema: JsonSchemaType,
     ) -> LlmResult:
         """Make the actual API call to Anthropic Vertex AI."""
-        client = _get_anthropic_client()
+        client = _get_anthropic_client(self.__model)
 
         # Append schema to system prompt if provided
         enhanced_system_prompt = system_prompt
@@ -207,12 +217,10 @@ class AnthropicVertexLlmCaller(LlmCaller):
             cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
         )
 
-        if not response.content or len(response.content) == 0:
+        # Newer models may put thinking blocks before the answer
+        text = "".join(block.text for block in response.content if isinstance(block, TextBlock))
+        if not text:
+            logger.warning("No text blocks in response (stop_reason=%s): %s", response.stop_reason, [block.type for block in response.content])
             return LlmResult(text=None, usage=usage)
 
-        first_block = response.content[0]
-        if not isinstance(first_block, TextBlock):
-            logger.warning("First block is not a TextBlock: %s", type(first_block))
-            return LlmResult(text=None, usage=usage)
-
-        return LlmResult(text=first_block.text, usage=usage)
+        return LlmResult(text=text, usage=usage)

@@ -2,7 +2,7 @@
 
 URL ?=
 SCENARIO ?=
-MODEL ?= anthropic_vertex/claude-haiku-4-5@20251001
+MODEL ?= anthropic_vertex/claude-haiku-5-5
 SESSION ?=
 DEBUG ?= 0
 VERBOSE ?= 0

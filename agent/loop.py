@@ -331,11 +331,12 @@ async def run_agent(
             pages_text = await _describe_pages(browser)
             error_text = f"\nPrevious action failed: {action_error}" if action_error else ""
             action_error = None
+            model_text = f"\nActive model: {'smart' if using_fallback else 'fast'}" if fallback_llm is not None else ""
             user_message = ConversationMessage(
                 role=MessageRole.USER,
                 content=[
                     ImageContent(data=screenshot_b64, media_type="image/png"),
-                    TextContent(text=f"Current URL: {current_url}\n{pages_text}{error_text}\n{step_label}. What should I do next?{stuck_hint}"),
+                    TextContent(text=f"Current URL: {current_url}\n{pages_text}{error_text}{model_text}\n{step_label}. What should I do next?{stuck_hint}"),
                 ],
             )
             conversation.append(user_message)
@@ -365,13 +366,19 @@ async def run_agent(
 
             console_output.step_action(response.next_step, str(response.action), response.reasoning, response.estimated_steps_remaining)
 
-            # Check if model requested permanent upgrade to smart model
-            if response.request_smart_model and fallback_llm is not None and not smart_mode_requested:
-                logger.info("Model requested smart mode, switching permanently to: %s", fallback_llm.model)
+            # Model-requested switch between the fast (primary) and smart (fallback) models
+            if response.switch_model == "smart" and fallback_llm is not None and not smart_mode_requested:
+                logger.info("Model requested smart mode, switching to: %s", fallback_llm.model)
                 console_output.model_switch(llm.model, fallback_llm.model, "Critical task - model requested upgrade")
                 llm = fallback_llm
                 using_fallback = True
                 smart_mode_requested = True
+            elif response.switch_model == "fast" and using_fallback:
+                logger.info("Model requested fast mode, switching to: %s", primary_llm.model)
+                console_output.model_switch(llm.model, primary_llm.model, "Critical part over - model requested downgrade")
+                llm = primary_llm
+                using_fallback = False
+                smart_mode_requested = False
 
             # Store assistant response as plain text to save tokens
             conversation.append(ConversationMessage(

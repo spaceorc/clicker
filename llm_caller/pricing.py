@@ -1,6 +1,6 @@
 """Hardcoded LLM pricing table and cost estimation.
 
-Last updated: 2026-02-13
+Last updated: 2026-10-21
 Run /update-pricing in Claude Code to refresh
 """
 
@@ -26,9 +26,12 @@ PRICING: dict[str, ModelPricing] = {
     "gemini-2.0-flash-lite":  ModelPricing(0.075, 0.30, 0, 0),
     "gemini-2.5-flash-lite":  ModelPricing(0.10, 0.40, 0.01, 0),
     "gemini-3-pro-preview":   ModelPricing(2.00, 12.00, 0.20, 0),
+    # Claude (Anthropic Vertex, global endpoint) - 17 chars
+    "claude-sonnet-5-5":      ModelPricing(2.0, 10.0, 0.10, 2.50),
     # Claude (Anthropic Vertex) - 17 chars
     "claude-sonnet-4-5":      ModelPricing(3.0, 15.0, 0.30, 3.75),
     # Mixed - 16 chars
+    "claude-haiku-5-5":       ModelPricing(0.10, 0.50, 0.01, 0.125),  # prompts under 100k tokens
     "claude-haiku-4-5":       ModelPricing(1.0, 5.0, 0.10, 1.25),
     "gemini-2.0-flash":       ModelPricing(0.15, 0.60, 0, 0),
     "gemini-2.5-flash":       ModelPricing(0.30, 2.50, 0.030, 0),

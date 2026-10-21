@@ -54,7 +54,7 @@ class SessionState:
     conversation: list[dict[str, Any]]
     usage: dict[str, int] = field(default_factory=dict)
     fallback_model: str | None = None
-    use_smart_model: bool = False  # If true, permanently use fallback (smart) model
+    use_smart_model: bool = False  # If true, use fallback (smart) model until the agent switches back
     user_data_dir: str | None = None  # Browser profile directory for persistent sessions
 
 

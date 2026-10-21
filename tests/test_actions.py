@@ -136,7 +136,7 @@ def test_agent_response_with_click():
         reasoning="Need to click the login button",
         next_step="Clicking login button",
         estimated_steps_remaining=3,
-        request_smart_model=False,
+        switch_model=None,
         action=ClickAction(x=500, y=300),
     )
 
@@ -144,7 +144,7 @@ def test_agent_response_with_click():
     assert response.reasoning == "Need to click the login button"
     assert response.next_step == "Clicking login button"
     assert response.estimated_steps_remaining == 3
-    assert response.request_smart_model is False
+    assert response.switch_model is None
     assert isinstance(response.action, ClickAction)
     assert response.action.x == 500
 
@@ -164,17 +164,31 @@ def test_agent_response_with_done():
 
 
 @pytest.mark.unit
-def test_agent_response_request_smart_model():
-    """Test AgentResponse requesting smart model upgrade."""
+@pytest.mark.parametrize("switch_model", ["smart", "fast"])
+def test_agent_response_switch_model(switch_model: str):
+    """Test AgentResponse requesting a model upgrade or downgrade."""
     response = AgentResponse(
         observation="This is a complex math problem",
-        reasoning="Need better reasoning for this",
+        reasoning="Need another model for this",
         next_step="Solving the problem",
-        request_smart_model=True,
+        switch_model=switch_model,
         action=WaitAction(ms=1000),
     )
 
-    assert response.request_smart_model is True
+    assert response.switch_model == switch_model
+
+
+@pytest.mark.unit
+def test_agent_response_invalid_switch_model():
+    """Test that only known model tiers are accepted."""
+    with pytest.raises(ValidationError):
+        AgentResponse(
+            observation="Page loaded",
+            reasoning="Ready to proceed",
+            next_step="Clicking button",
+            switch_model="medium",
+            action=ClickAction(x=100, y=100),
+        )
 
 
 @pytest.mark.unit
@@ -188,7 +202,7 @@ def test_agent_response_optional_fields():
     )
 
     assert response.estimated_steps_remaining is None  # optional, not provided
-    assert response.request_smart_model is False  # default value
+    assert response.switch_model is None  # default value
 
 
 @pytest.mark.unit
@@ -220,7 +234,7 @@ def test_agent_response_json_deserialization():
         "reasoning": "Test reasoning",
         "next_step": "Test next step",
         "estimated_steps_remaining": 3,
-        "request_smart_model": False,
+        "switch_model": None,
         "action": {
             "action": "type",
             "text": "Hello",
@@ -298,7 +312,7 @@ def test_agent_response_from_llm_json():
         "reasoning": "The form is filled, now I need to submit it",
         "next_step": "Clicking the submit button",
         "estimated_steps_remaining": 2,
-        "request_smart_model": false,
+        "switch_model": null,
         "action": {
             "action": "click",
             "x": 550,

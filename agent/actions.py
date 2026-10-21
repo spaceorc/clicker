@@ -99,8 +99,8 @@ class AgentResponse(BaseModel):
         default=None,
         description="Your best estimate of how many more steps are needed to complete the scenario (None if you can't estimate)"
     )
-    request_smart_model: bool = Field(
-        default=False,
-        description="Set to true if you need the smarter/more expensive model for this critical task (e.g. answering test questions, complex reasoning). Once enabled, will remain active for the rest of the session."
+    switch_model: Literal["smart", "fast"] | None = Field(
+        default=None,
+        description="Switch the model from the next step on: 'smart' for the smarter/more expensive model on a critical task (e.g. answering test questions, complex reasoning), 'fast' to go back to the cheap model once the critical part is over. The choice stays until you switch again. None to keep the current model."
     )
     action: Action
