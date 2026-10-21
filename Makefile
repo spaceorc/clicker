@@ -7,6 +7,7 @@ SESSION ?=
 DEBUG ?= 0
 VERBOSE ?= 0
 USER_DATA_DIR ?=
+TIMEOUT ?=
 
 ifneq ($(filter 1,$(DEBUG) $(VERBOSE)),)
     VERBOSE_FLAG = -v
@@ -20,6 +21,12 @@ else
     USER_DATA_FLAG =
 endif
 
+ifneq ($(TIMEOUT),)
+    TIMEOUT_FLAG = --timeout $(TIMEOUT)
+else
+    TIMEOUT_FLAG =
+endif
+
 ifneq ($(SESSION),)
     SESSION_FLAG = --session "$(SESSION)"
 else
@@ -31,19 +38,19 @@ install:
 	uv run playwright install chromium
 
 run:
-	uv run python main.py $(VERBOSE_FLAG) run "$(URL)" "$(SCENARIO)" --model "$(MODEL)" $(SESSION_FLAG) $(USER_DATA_FLAG)
+	uv run python main.py $(VERBOSE_FLAG) run "$(URL)" "$(SCENARIO)" --model "$(MODEL)" $(SESSION_FLAG) $(USER_DATA_FLAG) $(TIMEOUT_FLAG)
 
 run-visible:
-	uv run python main.py $(VERBOSE_FLAG) run "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless $(SESSION_FLAG) $(USER_DATA_FLAG)
+	uv run python main.py $(VERBOSE_FLAG) run "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless $(SESSION_FLAG) $(USER_DATA_FLAG) $(TIMEOUT_FLAG)
 
 run-pause:
-	uv run python main.py $(VERBOSE_FLAG) run "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless --pause $(SESSION_FLAG) $(USER_DATA_FLAG)
+	uv run python main.py $(VERBOSE_FLAG) run "$(URL)" "$(SCENARIO)" --model "$(MODEL)" --no-headless --pause $(SESSION_FLAG) $(USER_DATA_FLAG) $(TIMEOUT_FLAG)
 
 resume:
-	uv run python main.py $(VERBOSE_FLAG) resume "$(SESSION)" --no-headless
+	uv run python main.py $(VERBOSE_FLAG) resume "$(SESSION)" --no-headless $(TIMEOUT_FLAG)
 
 resume-last:
-	uv run python main.py $(VERBOSE_FLAG) resume --last --no-headless
+	uv run python main.py $(VERBOSE_FLAG) resume --last --no-headless $(TIMEOUT_FLAG)
 
 list:
 	uv run python main.py list
